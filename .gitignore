@@ -1,0 +1,9 @@
+node_modules
+dist
+dist-portable
+.env
+.env.local
+.env.*.local
+scripts/seed-output
+.DS_Store
+
