@@ -2044,7 +2044,7 @@ a {
 }
 
 .status-indicator-grid {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 }
 
 .status-metric {
@@ -2440,10 +2440,6 @@ a {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .status-indicator-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .archive-meta-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2527,7 +2523,6 @@ a {
   .limited-info-grid,
   .settings-grid,
   .executive-grid,
-  .status-indicator-grid,
   .approval-grid,
   .archive-grid,
   .archive-meta-grid,
