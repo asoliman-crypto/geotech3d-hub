@@ -1562,6 +1562,162 @@ a {
   max-width: 86px;
 }
 
+/* Task cards — readable replacement for the wide 12-column task table */
+.task-card-list {
+  display: grid;
+  gap: 16px;
+}
+
+.task-card {
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: var(--shadow);
+}
+
+.task-card.task-row-locked {
+  background: #f8fafc;
+}
+
+.task-card-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.task-card-title-field {
+  display: grid;
+  gap: 6px;
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.task-card-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.task-field-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.task-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px 16px;
+  align-items: start;
+}
+
+.task-field {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  min-width: 0;
+}
+
+.task-field-wide {
+  grid-column: 1 / -1;
+}
+
+.task-card input,
+.task-card select,
+.task-card textarea {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: var(--ink);
+  background: #ffffff;
+}
+
+.task-card input:disabled,
+.task-card select:disabled,
+.task-card textarea:disabled {
+  color: #475569;
+  background: #f8fafc;
+  cursor: not-allowed;
+}
+
+.task-card-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.task-card textarea {
+  min-height: 70px;
+  resize: vertical;
+}
+
+.task-card small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.task-progress-field {
+  display: grid;
+  gap: 8px;
+}
+
+.task-card-dates {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.task-date-sub {
+  display: grid;
+  gap: 4px;
+  flex: 1 1 130px;
+}
+
+.task-date-sub small {
+  font-weight: 600;
+}
+
+.task-data-field {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.task-data-field select {
+  flex: 0 0 150px;
+}
+
+.task-data-field input {
+  flex: 1 1 200px;
+}
+
+.task-data-field .mini-action {
+  margin-top: 0;
+  white-space: nowrap;
+}
+
+.task-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
 .mini-action,
 .primary-button,
 .secondary-button {

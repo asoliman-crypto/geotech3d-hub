@@ -93,123 +93,110 @@ export function TaskTable({
   }
 
   return (
-    <div className="table-shell">
-      <table className="task-table">
-        <thead>
-          <tr>
-            <th>Task</th>
-            <th>Project</th>
-            <th>Assignee</th>
-            <th>Status</th>
-            <th>Approval</th>
-            <th>QC Review</th>
-            <th>Progress</th>
-            <th>Dates</th>
-            <th>Priority</th>
-            <th>Task Data</th>
-            <th>Notes</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tasks.map((task) => {
-            const project = projects.find((item) => item.id === task.projectId);
-            const assignee = employees.find((employee) => employee.id === task.assigneeId);
-            const rowReadOnly = readOnly || isTaskLocked(task);
-            const canSubmitThisTask =
-              canSubmitTaskReview &&
-              !rowReadOnly &&
-              currentPersonId &&
-              task.assigneeId === currentPersonId &&
-              !task.approvalRequired &&
-              !isComplete(task) &&
-              task.status !== "Pending Review";
-            const rowStatusOptions = statusOptions.includes(task.status)
-              ? statusOptions
-              : [task.status, ...statusOptions];
-            return (
-              <tr className={rowReadOnly ? "task-row-locked" : ""} key={task.id}>
-                <td>
-                  <input
-                    value={task.title}
-                    disabled={rowReadOnly || !canManageTaskStructure}
-                    onChange={(event) => updateTask(task.id, { title: event.target.value }, task)}
-                  />
-                </td>
-                <td>
-                  <select
-                    value={task.projectId}
-                    disabled={rowReadOnly || !canManageTaskStructure}
-                    onChange={(event) => updateTask(task.id, { projectId: event.target.value }, task)}
-                  >
-                    {projects.map((item) => (
-                      <option value={item.id} key={item.id}>
-                        {item.id}
-                      </option>
-                    ))}
-                  </select>
-                  <small>{project?.name}</small>
-                  {rowReadOnly && project?.status === "Cancelled" ? (
-                    <Badge tone="danger">Locked by cancellation</Badge>
-                  ) : null}
-                </td>
-                <td>
-                  <select
-                    value={task.assigneeId}
-                    disabled={rowReadOnly || !canManageTaskStructure}
-                    onChange={(event) =>
-                      updateTask(task.id, { assigneeId: event.target.value }, task)
-                    }
-                  >
-                    {employees.map((employee) => (
-                      <option value={employee.id} key={employee.id}>
-                        {employee.name} - {employee.title}
-                      </option>
-                    ))}
-                  </select>
-                  <small>{assignee?.department}</small>
-                </td>
-                <td>
-                  <select
-                    value={task.status}
-                    disabled={rowReadOnly}
-                    onChange={(event) => updateTask(task.id, { status: event.target.value }, task)}
-                  >
-                    {rowStatusOptions.map((status) => (
-                      <option value={status} key={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
-                  <StatusBadge value={task.status} />
-                </td>
-                <td>
-                  {task.approvalRequired ? (
-                    <div className="approval-cell">
-                      <StatusBadge value={task.approvalStatus || "Pending Approval"} />
-                      <small>{task.approvalOwner || "Approval owner pending"}</small>
-                      {task.createdBy?.name ? (
-                        <Badge tone="neutral">By {task.createdBy.name}</Badge>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <span className="muted">Operational</span>
-                  )}
-                </td>
-                <td>
-                  <div className="approval-cell">
-                    <StatusBadge value={getQcBadgeValue(task)} />
-                    {task.submittedForReviewAt ? (
-                      <small>Submitted {new Date(task.submittedForReviewAt).toLocaleDateString("en")}</small>
-                    ) : (
-                      <small>Not submitted to Team Lead</small>
-                    )}
-                    {task.reviewedByName ? <small>Reviewed by {task.reviewedByName}</small> : null}
-                    {task.revisionCount ? <Badge tone="warning">Revision {task.revisionCount}</Badge> : null}
-                    {task.reviewComment ? <div className="review-note-inline">{task.reviewComment}</div> : null}
-                  </div>
-                </td>
-                <td>
+    <div className="task-card-list">
+      {tasks.map((task) => {
+        const project = projects.find((item) => item.id === task.projectId);
+        const assignee = employees.find((employee) => employee.id === task.assigneeId);
+        const rowReadOnly = readOnly || isTaskLocked(task);
+        const canSubmitThisTask =
+          canSubmitTaskReview &&
+          !rowReadOnly &&
+          currentPersonId &&
+          task.assigneeId === currentPersonId &&
+          !task.approvalRequired &&
+          !isComplete(task) &&
+          task.status !== "Pending Review";
+        const rowStatusOptions = statusOptions.includes(task.status)
+          ? statusOptions
+          : [task.status, ...statusOptions];
+        return (
+          <article className={`task-card${rowReadOnly ? " task-row-locked" : ""}`} key={task.id}>
+            <header className="task-card-head">
+              <label className="task-card-title-field">
+                <span className="task-field-label">Task</span>
+                <input
+                  className="task-card-title"
+                  value={task.title}
+                  disabled={rowReadOnly || !canManageTaskStructure}
+                  onChange={(event) => updateTask(task.id, { title: event.target.value }, task)}
+                />
+              </label>
+              <div className="task-card-badges">
+                <StatusBadge value={task.status} />
+                <PriorityBadge value={task.priority} />
+                {getDueBadge(task)}
+              </div>
+            </header>
+
+            <div className="task-card-grid">
+              <label className="task-field">
+                <span className="task-field-label">Project</span>
+                <select
+                  value={task.projectId}
+                  disabled={rowReadOnly || !canManageTaskStructure}
+                  onChange={(event) => updateTask(task.id, { projectId: event.target.value }, task)}
+                >
+                  {projects.map((item) => (
+                    <option value={item.id} key={item.id}>
+                      {item.id}
+                    </option>
+                  ))}
+                </select>
+                <small>{project?.name}</small>
+                {rowReadOnly && project?.status === "Cancelled" ? (
+                  <Badge tone="danger">Locked by cancellation</Badge>
+                ) : null}
+              </label>
+
+              <label className="task-field">
+                <span className="task-field-label">Assignee</span>
+                <select
+                  value={task.assigneeId}
+                  disabled={rowReadOnly || !canManageTaskStructure}
+                  onChange={(event) => updateTask(task.id, { assigneeId: event.target.value }, task)}
+                >
+                  {employees.map((employee) => (
+                    <option value={employee.id} key={employee.id}>
+                      {employee.name} - {employee.title}
+                    </option>
+                  ))}
+                </select>
+                <small>{assignee?.department}</small>
+              </label>
+
+              <label className="task-field">
+                <span className="task-field-label">Status</span>
+                <select
+                  value={task.status}
+                  disabled={rowReadOnly}
+                  onChange={(event) => updateTask(task.id, { status: event.target.value }, task)}
+                >
+                  {rowStatusOptions.map((status) => (
+                    <option value={status} key={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="task-field">
+                <span className="task-field-label">Priority</span>
+                <select
+                  value={task.priority}
+                  disabled={rowReadOnly || !canManageTaskStructure}
+                  onChange={(event) => updateTask(task.id, { priority: event.target.value }, task)}
+                >
+                  {priorities.map((priority) => (
+                    <option value={priority} key={priority}>
+                      {priority}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="task-field">
+                <span className="task-field-label">Progress</span>
+                <div className="task-progress-field">
                   <input
                     className="number-input"
                     type="number"
@@ -220,37 +207,67 @@ export function TaskTable({
                     onChange={(event) => updateTask(task.id, { progress: event.target.value }, task)}
                   />
                   <ProgressBar value={task.progress} />
-                </td>
-                <td>
-                  <input
-                    type="date"
-                    value={task.start}
-                    disabled={rowReadOnly || !canManageTaskStructure}
-                    onChange={(event) => updateTask(task.id, { start: event.target.value }, task)}
-                  />
-                  <input
-                    type="date"
-                    value={task.end}
-                    disabled={rowReadOnly || !canManageTaskStructure}
-                    onChange={(event) => updateTask(task.id, { end: event.target.value }, task)}
-                  />
-                  <div className="task-date-status">{getDueBadge(task)}</div>
-                </td>
-                <td>
-                  <select
-                    value={task.priority}
-                    disabled={rowReadOnly || !canManageTaskStructure}
-                    onChange={(event) => updateTask(task.id, { priority: event.target.value }, task)}
-                  >
-                    {priorities.map((priority) => (
-                      <option value={priority} key={priority}>
-                        {priority}
-                      </option>
-                    ))}
-                  </select>
-                  <PriorityBadge value={task.priority} />
-                </td>
-                <td>
+                </div>
+              </label>
+
+              <div className="task-field">
+                <span className="task-field-label">Start &amp; Due dates</span>
+                <div className="task-card-dates">
+                  <label className="task-date-sub">
+                    <small>Start</small>
+                    <input
+                      type="date"
+                      value={task.start}
+                      disabled={rowReadOnly || !canManageTaskStructure}
+                      onChange={(event) => updateTask(task.id, { start: event.target.value }, task)}
+                    />
+                  </label>
+                  <label className="task-date-sub">
+                    <small>Due</small>
+                    <input
+                      type="date"
+                      value={task.end}
+                      disabled={rowReadOnly || !canManageTaskStructure}
+                      onChange={(event) => updateTask(task.id, { end: event.target.value }, task)}
+                    />
+                  </label>
+                </div>
+                <div className="task-date-status">{getDueBadge(task)}</div>
+              </div>
+
+              <div className="task-field">
+                <span className="task-field-label">Approval</span>
+                {task.approvalRequired ? (
+                  <div className="approval-cell">
+                    <StatusBadge value={task.approvalStatus || "Pending Approval"} />
+                    <small>{task.approvalOwner || "Approval owner pending"}</small>
+                    {task.createdBy?.name ? (
+                      <Badge tone="neutral">By {task.createdBy.name}</Badge>
+                    ) : null}
+                  </div>
+                ) : (
+                  <span className="muted">Operational (no approval needed)</span>
+                )}
+              </div>
+
+              <div className="task-field">
+                <span className="task-field-label">QC Review</span>
+                <div className="approval-cell">
+                  <StatusBadge value={getQcBadgeValue(task)} />
+                  {task.submittedForReviewAt ? (
+                    <small>Submitted {new Date(task.submittedForReviewAt).toLocaleDateString("en")}</small>
+                  ) : (
+                    <small>Not submitted to Team Lead</small>
+                  )}
+                  {task.reviewedByName ? <small>Reviewed by {task.reviewedByName}</small> : null}
+                  {task.revisionCount ? <Badge tone="warning">Revision {task.revisionCount}</Badge> : null}
+                  {task.reviewComment ? <div className="review-note-inline">{task.reviewComment}</div> : null}
+                </div>
+              </div>
+
+              <label className="task-field task-field-wide">
+                <span className="task-field-label">Task Data (path or download link)</span>
+                <div className="task-data-field">
                   <select
                     value={task.dataRefType}
                     disabled={rowReadOnly}
@@ -266,9 +283,7 @@ export function TaskTable({
                     value={task.dataRefValue}
                     placeholder="Path or download link"
                     disabled={rowReadOnly}
-                    onChange={(event) =>
-                      updateTask(task.id, { dataRefValue: event.target.value }, task)
-                    }
+                    onChange={(event) => updateTask(task.id, { dataRefValue: event.target.value }, task)}
                   />
                   {task.dataRefType === "Download Link" ? (
                     <a
@@ -290,59 +305,61 @@ export function TaskTable({
                       Copy
                     </button>
                   )}
-                </td>
-                <td>
-                  <textarea
-                    value={task.notes}
-                    disabled={rowReadOnly}
-                    onChange={(event) => updateTask(task.id, { notes: event.target.value }, task)}
-                  />
-                </td>
-                <td>
-                  <div className="task-action-stack">
-                    {canSubmitThisTask ? (
-                      <button
-                        className="primary-button compact-button"
-                        type="button"
-                        onClick={() => onSubmitTaskReview?.(task.id)}
-                      >
-                        <Send size={14} aria-hidden="true" />
-                        {task.qcStatus === "Rejected" || task.status === "Needs Revision"
-                          ? "Resubmit"
-                          : "Submit Review"}
-                      </button>
-                    ) : task.status === "Pending Review" ? (
-                      <Badge tone="warning">Waiting Team Lead</Badge>
-                    ) : isComplete(task) ? (
-                      <Badge tone="success">Completed</Badge>
-                    ) : (
-                      <span className="muted">No action</span>
-                    )}
-                    {canDeleteTasks ? (
-                      <button
-                        className="danger-button compact-button"
-                        type="button"
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              `Delete task "${task.title}"? It will be moved to the Recycle Bin, not lost.`,
-                            )
-                          ) {
-                            onDeleteTask?.(task.id);
-                          }
-                        }}
-                      >
-                        <Trash2 size={14} aria-hidden="true" />
-                        Delete
-                      </button>
-                    ) : null}
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                </div>
+              </label>
+
+              <label className="task-field task-field-wide">
+                <span className="task-field-label">Notes</span>
+                <textarea
+                  value={task.notes}
+                  placeholder="Add notes for this task…"
+                  disabled={rowReadOnly}
+                  onChange={(event) => updateTask(task.id, { notes: event.target.value }, task)}
+                />
+              </label>
+            </div>
+
+            <footer className="task-card-foot">
+              {canSubmitThisTask ? (
+                <button
+                  className="primary-button compact-button"
+                  type="button"
+                  onClick={() => onSubmitTaskReview?.(task.id)}
+                >
+                  <Send size={14} aria-hidden="true" />
+                  {task.qcStatus === "Rejected" || task.status === "Needs Revision"
+                    ? "Resubmit"
+                    : "Submit Review"}
+                </button>
+              ) : task.status === "Pending Review" ? (
+                <Badge tone="warning">Waiting Team Lead</Badge>
+              ) : isComplete(task) ? (
+                <Badge tone="success">Completed</Badge>
+              ) : (
+                <span className="muted">No action needed</span>
+              )}
+              {canDeleteTasks ? (
+                <button
+                  className="danger-button compact-button"
+                  type="button"
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Delete task "${task.title}"? It will be moved to the Recycle Bin, not lost.`,
+                      )
+                    ) {
+                      onDeleteTask?.(task.id);
+                    }
+                  }}
+                >
+                  <Trash2 size={14} aria-hidden="true" />
+                  Delete
+                </button>
+              ) : null}
+            </footer>
+          </article>
+        );
+      })}
     </div>
   );
 }
