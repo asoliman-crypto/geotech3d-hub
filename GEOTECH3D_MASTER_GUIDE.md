@@ -166,6 +166,57 @@ VITE_SUPABASE_ANON_KEY = sb_publishable_xiyOlgF5oZidpKkqPUGD1Q_tjp-L1t7
 
 ---
 
+## 8.5) 🤖 Runbook للـ Claude/المساعد اللي بعدي (تعليمات تقنية دقيقة)
+
+> **لو إنت كلود/مساعد جديد بتكمّل الشغل ده:** المشروع لايف ومربوط. اتبع ده بالظبط عشان تعدّل وتنشر لايف زي الأول.
+
+**مجلد المشروع:**
+```
+C:\Users\pc\Documents\Codex\2026-05-23\files-mentioned-by-the-user-projects\projects-hub
+```
+
+### الخطوة أ — Preflight (اتأكد الأول إن كله متظبط)
+```bash
+cd "C:/Users/pc/Documents/Codex/2026-05-23/files-mentioned-by-the-user-projects/projects-hub"
+vercel whoami            # المفروض يرجّع: asoliman-9433
+cat .vercel/project.json # المفروض يبان projectName: geotech3d-hub
+[ -f .env.local ] && echo "env ok"   # لازم يكون موجود
+git remote get-url origin            # github.com/asoliman-crypto/geotech3d-hub.git
+```
+- لو `vercel whoami` فاضي → محتاج `vercel login` (**ده تفاعلي — لازم المستخدم يعمله بنفسه**).
+- لو `.env.local` مش موجود → `vercel env pull .env.local`.
+- لو `.vercel` مش موجود → `vercel link --project geotech3d-hub --yes`.
+
+### الخطوة ب — عدّل وانشر لايف (الفلو الأساسي)
+```bash
+cd "C:/Users/pc/Documents/Codex/2026-05-23/files-mentioned-by-the-user-projects/projects-hub"
+# 1) عدّل الكود اللي المستخدم طلبه (Edit tool)
+# 2) ابنِ للتأكد إنه بيكمبايل:
+npm run build
+# 3) ارفع أرشيف على GitHub:
+git add -A
+git commit -m "وصف التعديل"
+git push origin main
+# 4) انشر لايف على Vercel:
+vercel --prod --yes
+```
+خلال ~دقيقة التعديل يبقى على https://geotech3d-hub.vercel.app للفريق كله.
+
+### الخطوة ج — تأكيد إن التعديل فعلاً لايف (البراوزر ساعات بيفصل، استخدم curl)
+```bash
+curl -s "https://geotech3d-hub.vercel.app/" -o /tmp/i.html -w "%{http_code}\n"
+JS=$(grep -oE '/assets/[A-Za-z0-9_-]+\.js' /tmp/i.html | head -1)
+curl -s "https://geotech3d-hub.vercel.app${JS}" | grep -o "النص الجديد اللي ضفته" && echo "LIVE ✅"
+```
+
+### مبادئ مهمة للمساعد
+- **متقولش للمستخدم يرفع ملفات يدوي** — إنت بتنشر بـ `vercel --prod`.
+- متعملش rebuild من الصفر ولا تعيد بذر البيانات القديمة (راجع working-rules).
+- حافظ على الهوية البصرية (رمادي/أخضر + ذهبي).
+- الـ `anon key` آمن يتنشر؛ الـ `sb_secret_` لأ.
+
+---
+
 ## 9) 📁 الملفات والأماكن المهمة
 
 - **مجلد المشروع:** `C:\Users\pc\Documents\Codex\2026-05-23\files-mentioned-by-the-user-projects\projects-hub`
