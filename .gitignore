@@ -7,3 +7,6 @@ dist-portable
 scripts/seed-output
 .DS_Store
 
+
+.vercel
+.env*

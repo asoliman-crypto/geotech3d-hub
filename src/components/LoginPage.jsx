@@ -113,7 +113,7 @@ function LoginCard({
           Authorized access
         </span>
         <h2>Sign in to GEOSPATIAL HUB</h2>
-        <p>Use your assigned GEOTECH 3D account credentials.</p>
+        <p>Welcome back — sign in with your GEOTECH 3D team account.</p>
       </div>
 
       <form className="login-form" onSubmit={onSubmit}>
