@@ -38,8 +38,8 @@ https://geotech3d-hub.vercel.app
 | Abdelrahman Soliman | `abdelrahman.soliman` | abdelrahman.soliman@geotech3d.local | **Manager** (مدير العمليات — صاحب الاعتمادات) |
 | Islam Saied | `islam.saied` | islam.saied@geotech3d.local | Manager |
 | Mayar Abd Elazeem | `mayar.abd.elazeem` | mayar.abd.elazeem@geotech3d.local | Manager / Team Lead |
-| Engy Yosry | `engy.yosry` | engy.yosry@geotech3d.local | Manager |
-| Mahmoud Elkady | `mahmoud.elkady` | mahmoud.elkady@geotech3d.local | Manager |
+| Engy Yosry | `engy.yosry` | engy.yosry@geotech3d.local | Manager / Team Lead (GIS) |
+| Mahmoud Elkady | `mahmoud.elkady` | mahmoud.elkady@geotech3d.local | Manager / Team Lead (Head Geomatics) |
 | Mahmoud Mohamed | `mahmoud.mohamed` | mahmoud.mohamed@geotech3d.local | Employee |
 | Mahmoud Emad | `mahmoud.emad` | mahmoud.emad@geotech3d.local | Employee |
 | Yasmin Abdelgwad | `yasmin.abdelgwad` | yasmin.abdelgwad@geotech3d.local | Employee |
