@@ -73,7 +73,7 @@ import { AuditLogPage } from "./components/AuditLogPage.jsx";
 import { CompanyReport } from "./components/CompanyReport.jsx";
 import { ProjectGanttReport } from "./components/ProjectGanttReport.jsx";
 import { ProjectCard } from "./components/ProjectCard.jsx";
-import { TaskTable } from "./components/TaskTable.jsx";
+import { TaskGroupsByProject, TaskTable } from "./components/TaskTable.jsx";
 import {
   Badge,
   EmptyState,
@@ -4496,7 +4496,7 @@ function TasksPage({
             onPrint={printReport}
           />
         </div>
-        <TaskTable
+        <TaskGroupsByProject
           tasks={tasks}
           projects={projects}
           employees={employees}

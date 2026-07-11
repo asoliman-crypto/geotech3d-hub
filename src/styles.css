@@ -1621,6 +1621,76 @@ a {
   padding: 16px 18px;
 }
 
+/* Project groups — tasks organised under collapsible project sections */
+.project-task-groups {
+  display: grid;
+  gap: 14px;
+}
+
+.project-task-group {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.project-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+  padding: 16px 18px;
+  border: 0;
+  background: #f8fafc;
+  cursor: pointer;
+  text-align: left;
+}
+
+.project-group-toggle:hover {
+  background: #f1f5f9;
+}
+
+.project-task-group.is-open .project-group-toggle {
+  border-bottom: 1px solid var(--border);
+}
+
+.project-group-caret {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.project-group-title {
+  flex: 1 1 200px;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.project-group-title strong {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.project-group-title small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.project-group-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.project-group-body {
+  padding: 14px 16px;
+  background: #fbfcfe;
+}
+
 .task-card-head {
   display: flex;
   align-items: flex-end;

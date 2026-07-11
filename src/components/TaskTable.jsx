@@ -411,3 +411,93 @@ export function TaskTable({
     </div>
   );
 }
+
+function isTaskOverdue(task) {
+  if (isComplete(task) || task.status === "Cancelled" || !task.end) return false;
+  return getDaysUntil(task.end) < 0;
+}
+
+function ProjectTaskGroup({ project, projectId, tasks, defaultOpen, tableProps }) {
+  const [open, setOpen] = useState(Boolean(defaultOpen));
+  const openCount = tasks.filter(
+    (task) => !isComplete(task) && task.status !== "Cancelled",
+  ).length;
+  const overdueCount = tasks.filter(isTaskOverdue).length;
+
+  return (
+    <section className={`project-task-group${open ? " is-open" : ""}`}>
+      <button
+        type="button"
+        className="project-group-toggle"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+      >
+        {open ? (
+          <ChevronDown size={20} className="project-group-caret" aria-hidden="true" />
+        ) : (
+          <ChevronRight size={20} className="project-group-caret" aria-hidden="true" />
+        )}
+        <span className="project-group-title">
+          <strong>{project ? project.name : "Unassigned tasks"}</strong>
+          {project?.id ? <small>{project.id}</small> : null}
+        </span>
+        <span className="project-group-badges">
+          <Badge tone="neutral">
+            {tasks.length} task{tasks.length !== 1 ? "s" : ""}
+          </Badge>
+          {openCount ? <Badge tone="warning">{openCount} open</Badge> : null}
+          {overdueCount ? <Badge tone="danger">{overdueCount} overdue</Badge> : null}
+        </span>
+      </button>
+
+      {open ? (
+        <div className="project-group-body">
+          <TaskTable {...tableProps} tasks={tasks} />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+// Same data as TaskTable, but grouped into collapsible project sections:
+// pick a project to reveal its tasks (each still an expandable card).
+export function TaskGroupsByProject({ tasks, projects, ...tableProps }) {
+  if (!tasks.length) {
+    return (
+      <div className="empty-state">
+        <h3>No tasks yet</h3>
+        <p>Create the first task to start tracking progress and workload.</p>
+      </div>
+    );
+  }
+
+  const grouped = new Map();
+  for (const task of tasks) {
+    const key = task.projectId || "__none__";
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(task);
+  }
+
+  const orderedKeys = [];
+  for (const project of projects) {
+    if (grouped.has(project.id)) orderedKeys.push(project.id);
+  }
+  for (const key of grouped.keys()) {
+    if (!orderedKeys.includes(key)) orderedKeys.push(key);
+  }
+
+  return (
+    <div className="project-task-groups">
+      {orderedKeys.map((key, index) => (
+        <ProjectTaskGroup
+          key={key}
+          projectId={key}
+          project={projects.find((item) => item.id === key)}
+          tasks={grouped.get(key)}
+          defaultOpen={orderedKeys.length === 1 && index === 0}
+          tableProps={{ ...tableProps, projects }}
+        />
+      ))}
+    </div>
+  );
+}
