@@ -1691,6 +1691,121 @@ a {
   background: #fbfcfe;
 }
 
+/* Project Detail — every project as a distinctive collapsible accordion */
+.pd-list-intro {
+  padding: 2px 2px 0;
+}
+
+.pd-list-intro h2 {
+  margin: 4px 0 6px;
+  font-size: 24px;
+}
+
+.pd-list-intro p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.pd-item {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.pd-item-toggle {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  width: 100%;
+  padding: 18px 20px;
+  border: 0;
+  border-left: 4px solid var(--gold, #a0840d);
+  cursor: pointer;
+  text-align: left;
+  background: linear-gradient(180deg, rgba(160, 132, 13, 0.06), transparent);
+}
+
+.pd-item-toggle:hover {
+  background: #f8fafc;
+}
+
+.pd-item.is-open .pd-item-toggle {
+  border-bottom: 1px solid var(--border);
+  background: #f8fafc;
+}
+
+.pd-item-cancelled .pd-item-toggle {
+  border-left-color: var(--red);
+}
+
+.pd-item-caret {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.pd-item-heading {
+  flex: 1 1 240px;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.pd-item-id {
+  color: var(--amber);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pd-item-heading strong {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.pd-item-client {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.pd-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pd-item-progress {
+  display: flex;
+  align-items: center;
+  min-width: 140px;
+}
+
+.pd-item-progress .progress-track {
+  width: 90px;
+}
+
+.pd-item-body {
+  padding: 16px 18px;
+  background: #fbfcfe;
+}
+
+/* Compact action row when a project detail is embedded in an accordion */
+.detail-header-embedded {
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.detail-header-embedded > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .task-card-head {
   display: flex;
   align-items: flex-end;

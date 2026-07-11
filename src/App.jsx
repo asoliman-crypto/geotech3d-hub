@@ -7,6 +7,8 @@ import {
   BriefcaseBusiness,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   CircleAlert,
   ClipboardCheck,
   ClipboardList,
@@ -2298,30 +2300,20 @@ export default function App() {
         )}
 
         {activeView === "detail" && canAccessView(currentUser, "detail") && (
-          <ProjectDetail
-            project={selectedProject}
+          <ProjectDetailList
+            projects={activeRoleScopedProjects}
             employees={workspacePeople}
-            tasks={selectedProjectTasks}
-            onUpdateTask={updateTask}
-            canEditTasks={
-              (capabilities.canManageTasks || taskLevelRoles.includes(currentUser.role)) &&
-              (!isProjectCancelled(selectedProject) || capabilities.canManageProjects)
-            }
-            canCancelProject={capabilities.canCancelProjects}
-            onRequestCancelProject={openCancelProject}
-            canDeleteProject={capabilities.canManageProjects}
-            onDeleteProject={deleteProject}
-            canDeleteTasks={capabilities.canManageTasks}
-            onDeleteTask={deleteTask}
-            canComment={capabilities.canComment}
-            comments={selectedProjectComments}
+            allTasks={roleScopedTasks}
+            allComments={comments}
+            capabilities={capabilities}
             currentUser={currentUser}
+            onUpdateTask={updateTask}
+            onRequestCancelProject={openCancelProject}
+            onDeleteProject={deleteProject}
+            onDeleteTask={deleteTask}
             onAddComment={addComment}
-            canSubmitTaskReview={capabilities.canSubmitTaskReview}
-            canCompleteTasksDirectly={capabilities.canCompleteTasksDirectly}
             onSubmitTaskReview={handleSubmitTaskReview}
             isTaskLocked={isTaskLockedForCurrentUser}
-            limitedView={taskLevelRoles.includes(currentUser.role)}
             onOpenGanttReport={openGanttReport}
           />
         )}
@@ -4081,6 +4073,150 @@ function TrashPage({ trash, onRestore, onPurge }) {
   );
 }
 
+function ProjectDetailAccordionItem({
+  project,
+  tasks,
+  comments,
+  employees,
+  capabilities,
+  currentUser,
+  limitedView,
+  defaultOpen,
+  onUpdateTask,
+  onRequestCancelProject,
+  onDeleteProject,
+  onDeleteTask,
+  onAddComment,
+  onSubmitTaskReview,
+  isTaskLocked,
+  onOpenGanttReport,
+}) {
+  const [open, setOpen] = useState(Boolean(defaultOpen));
+  const canEditTasks =
+    (capabilities.canManageTasks || limitedView) &&
+    (!isProjectCancelled(project) || capabilities.canManageProjects);
+  const progress = Number.isFinite(project.progress) ? project.progress : 0;
+
+  return (
+    <section className={`pd-item${open ? " is-open" : ""}${isProjectCancelled(project) ? " pd-item-cancelled" : ""}`}>
+      <button
+        type="button"
+        className="pd-item-toggle"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+      >
+        {open ? (
+          <ChevronDown size={20} className="pd-item-caret" aria-hidden="true" />
+        ) : (
+          <ChevronRight size={20} className="pd-item-caret" aria-hidden="true" />
+        )}
+        <span className="pd-item-heading">
+          <small className="pd-item-id">{project.id}</small>
+          <strong>{project.name || "Untitled project"}</strong>
+          {project.client ? <span className="pd-item-client">{project.client}</span> : null}
+        </span>
+        <span className="pd-item-meta">
+          <StatusBadge value={project.status} />
+          <Badge tone="neutral">
+            {tasks.length} task{tasks.length !== 1 ? "s" : ""}
+          </Badge>
+          <span className="pd-item-progress">
+            <ProgressBar value={progress} />
+          </span>
+        </span>
+      </button>
+
+      {open ? (
+        <div className="pd-item-body">
+          <ProjectDetail
+            embedded
+            project={project}
+            employees={employees}
+            tasks={tasks}
+            comments={comments}
+            currentUser={currentUser}
+            onUpdateTask={onUpdateTask}
+            canEditTasks={canEditTasks}
+            canCancelProject={capabilities.canCancelProjects}
+            onRequestCancelProject={onRequestCancelProject}
+            canDeleteProject={capabilities.canManageProjects}
+            onDeleteProject={onDeleteProject}
+            canDeleteTasks={capabilities.canManageTasks}
+            onDeleteTask={onDeleteTask}
+            canComment={capabilities.canComment}
+            onAddComment={onAddComment}
+            canSubmitTaskReview={capabilities.canSubmitTaskReview}
+            canCompleteTasksDirectly={capabilities.canCompleteTasksDirectly}
+            onSubmitTaskReview={onSubmitTaskReview}
+            isTaskLocked={isTaskLocked}
+            limitedView={limitedView}
+            onOpenGanttReport={onOpenGanttReport}
+          />
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function ProjectDetailList({
+  projects,
+  employees,
+  allTasks,
+  allComments,
+  capabilities,
+  currentUser,
+  onUpdateTask,
+  onRequestCancelProject,
+  onDeleteProject,
+  onDeleteTask,
+  onAddComment,
+  onSubmitTaskReview,
+  isTaskLocked,
+  onOpenGanttReport,
+}) {
+  if (!projects.length) {
+    return (
+      <EmptyState
+        title="No projects yet"
+        text="Create a project to see its full details here."
+      />
+    );
+  }
+
+  const limitedView = taskLevelRoles.includes(currentUser.role);
+
+  return (
+    <div className="project-detail-list stack">
+      <div className="pd-list-intro">
+        <span className="eyebrow">All Projects</span>
+        <h2>Project Detail</h2>
+        <p>Open a project to see its requirements, links, team, and tasks.</p>
+      </div>
+      {projects.map((project) => (
+        <ProjectDetailAccordionItem
+          key={project.id}
+          project={project}
+          tasks={allTasks.filter((task) => task.projectId === project.id)}
+          comments={allComments.filter((comment) => comment.projectId === project.id)}
+          employees={employees}
+          capabilities={capabilities}
+          currentUser={currentUser}
+          limitedView={limitedView}
+          defaultOpen={projects.length === 1}
+          onUpdateTask={onUpdateTask}
+          onRequestCancelProject={onRequestCancelProject}
+          onDeleteProject={onDeleteProject}
+          onDeleteTask={onDeleteTask}
+          onAddComment={onAddComment}
+          onSubmitTaskReview={onSubmitTaskReview}
+          isTaskLocked={isTaskLocked}
+          onOpenGanttReport={onOpenGanttReport}
+        />
+      ))}
+    </div>
+  );
+}
+
 function ProjectDetail({
   project,
   employees,
@@ -4103,6 +4239,7 @@ function ProjectDetail({
   isTaskLocked,
   limitedView,
   onOpenGanttReport,
+  embedded = false,
 }) {
   if (!project) {
     return <EmptyState title="No project selected" text="Create or select a project to view details." />;
@@ -4130,11 +4267,15 @@ function ProjectDetail({
         </section>
       ) : null}
 
-      <section className="detail-header">
+      <section className={`detail-header${embedded ? " detail-header-embedded" : ""}`}>
         <div>
-          <span className="eyebrow">{project.id}</span>
-          <h2>{project.name}</h2>
-          <p>{project.client}</p>
+          {embedded ? null : (
+            <>
+              <span className="eyebrow">{project.id}</span>
+              <h2>{project.name}</h2>
+              <p>{project.client}</p>
+            </>
+          )}
           <button
             className="report-cta detail-report-cta no-print"
             type="button"
@@ -4145,8 +4286,12 @@ function ProjectDetail({
           </button>
         </div>
         <div className="detail-status">
-          <StatusBadge value={project.status} />
-          <ProgressBar value={project.progress} />
+          {embedded ? null : (
+            <>
+              <StatusBadge value={project.status} />
+              <ProgressBar value={project.progress} />
+            </>
+          )}
           {isProjectCancelled(project) ? (
             <div className="cancellation-summary">
               <strong>Project Cancelled</strong>
