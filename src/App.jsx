@@ -32,6 +32,8 @@ import {
   Send,
   Settings,
   ShieldCheck,
+  Sparkles,
+  Sun,
   SidebarClose,
   SidebarOpen,
   SquareCheckBig,
@@ -77,6 +79,7 @@ import {
   EmptyState,
   ExportBar,
   Field,
+  PriorityBadge,
   ProgressBar,
   SectionTitle,
   StatusBadge,
@@ -130,6 +133,7 @@ import { inferProjectGeo } from "./utils/geo.js";
 import geoBrandLogo from "./assets/brand/geotech3d-logo-full.svg";
 
 const navItems = [
+  { id: "home", label: "My Day", icon: Sparkles },
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "report", label: "Daily Report", icon: FileText },
   { id: "insights", label: "Reports", icon: BarChart3 },
@@ -249,7 +253,8 @@ function createRecordId(prefix) {
 // Where a user lands after login / when their current view is not allowed.
 // Managers land on the dashboard; task-level users land on "My Tasks".
 function getLandingView(user) {
-  if (!user) return "dashboard";
+  if (!user) return "home";
+  if (canAccessView(user, "home")) return "home";
   if (canAccessView(user, "dashboard")) return "dashboard";
   const firstNavItem = navItems.find((item) => canAccessView(user, item.id));
   return firstNavItem?.id || "tasks";
@@ -2201,6 +2206,23 @@ export default function App() {
           </div>
         </header>
 
+        {activeView === "home" && (
+          <TodayHome
+            currentUser={currentUser}
+            capabilities={capabilities}
+            tasks={roleScopedTasks}
+            projects={activeRoleScopedProjects}
+            reviewQueue={reviewQueue}
+            approvalQueue={approvalQueue}
+            stats={dashboardStats}
+            isPersonalView={taskLevelRoles.includes(currentUser.role)}
+            onSubmitTaskReview={handleSubmitTaskReview}
+            isTaskLocked={isTaskLockedForCurrentUser}
+            onNavigate={setActiveView}
+            onOpenProject={openProject}
+          />
+        )}
+
         {activeView === "dashboard" && canAccessView(currentUser, "dashboard") && (
           <Dashboard
             stats={dashboardStats}
@@ -2573,6 +2595,353 @@ function DailyReport({ report, currentUser, onExportCsv, onPrint }) {
           </span>
         </div>
       </section>
+    </div>
+  );
+}
+
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+function todayDateLabel() {
+  return new Date().toLocaleDateString("en", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+const TODAY_PRIORITY_RANK = { High: 0, Medium: 1, Low: 2 };
+
+function TodayDueBadge({ task }) {
+  if (!task.end || isTaskComplete(task) || task.status === "Cancelled") return null;
+  const days = getDaysUntil(task.end);
+  if (days < 0) return <Badge tone="danger">{Math.abs(days)}d overdue</Badge>;
+  if (days === 0) return <Badge tone="danger">Due today</Badge>;
+  if (days <= 7) return <Badge tone="warning">Due in {days}d</Badge>;
+  return <Badge tone="neutral">Due in {days}d</Badge>;
+}
+
+function TodayTaskRow({ task, projectName, action }) {
+  return (
+    <div className="today-task-row">
+      <div className="today-task-main">
+        <strong>{task.title || "Untitled task"}</strong>
+        <div className="today-task-meta">
+          <span className="today-task-project">{projectName}</span>
+          <StatusBadge value={task.status} />
+          <PriorityBadge value={task.priority} />
+          <TodayDueBadge task={task} />
+        </div>
+      </div>
+      {action ? <div className="today-task-actions">{action}</div> : null}
+    </div>
+  );
+}
+
+function TodaySection({ icon: Icon, title, tone, tasks, projectName, renderAction, onSeeAll }) {
+  return (
+    <section className={`today-section panel today-section--${tone || "neutral"}`}>
+      <header className="today-section-head">
+        <span className="today-section-title">
+          {Icon ? <Icon size={16} aria-hidden="true" /> : null}
+          {title}
+        </span>
+        <span className="today-section-count">{tasks.length}</span>
+      </header>
+      <div className="today-task-list">
+        {tasks.slice(0, 6).map((task) => (
+          <TodayTaskRow
+            key={task.id}
+            task={task}
+            projectName={projectName(task.projectId)}
+            action={renderAction ? renderAction(task) : null}
+          />
+        ))}
+      </div>
+      {tasks.length > 6 && onSeeAll ? (
+        <button className="mini-action" type="button" onClick={onSeeAll}>
+          See all ({tasks.length})
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
+function TodayHome({
+  currentUser,
+  capabilities,
+  tasks,
+  projects,
+  reviewQueue,
+  approvalQueue,
+  stats,
+  isPersonalView,
+  onSubmitTaskReview,
+  isTaskLocked,
+  onNavigate,
+  onOpenProject,
+}) {
+  const personId = currentUser?.employeeId || currentUser?.id;
+  const firstName = String(currentUser?.name || "").trim().split(" ")[0] || "there";
+  const projectName = (id) => projects.find((project) => project.id === id)?.name || id;
+
+  const myTasks = tasks.filter((task) => task.assigneeId === personId);
+  const waitingReview = myTasks.filter(
+    (task) => task.status === "Pending Review" || task.qcStatus === "Pending Review",
+  );
+  const actionable = myTasks.filter(
+    (task) => !isTaskComplete(task) && task.status !== "Cancelled" && task.status !== "Pending Review",
+  );
+  const overdue = actionable.filter((task) => isOverdue(task));
+  const dueToday = actionable.filter(
+    (task) => !isOverdue(task) && getDaysUntil(task.end) === 0,
+  );
+  const upcoming = actionable
+    .filter((task) => {
+      const days = getDaysUntil(task.end);
+      return days > 0 && days <= 14;
+    })
+    .sort((a, b) => getDaysUntil(a.end) - getDaysUntil(b.end));
+  const completedCount = myTasks.filter(isTaskComplete).length;
+
+  const focus = [...actionable].sort((a, b) => {
+    const da = getDaysUntil(a.end);
+    const db = getDaysUntil(b.end);
+    if (da !== db) return da - db;
+    return (TODAY_PRIORITY_RANK[a.priority] ?? 3) - (TODAY_PRIORITY_RANK[b.priority] ?? 3);
+  })[0];
+
+  // The focus task is highlighted on its own, so keep it out of the lists below
+  // to avoid showing the same task twice.
+  const focusId = focus?.id;
+  const overdueRest = overdue.filter((task) => task.id !== focusId);
+  const dueTodayRest = dueToday.filter((task) => task.id !== focusId);
+  const upcomingRest = upcoming.filter((task) => task.id !== focusId);
+
+  const showReviewQueue = capabilities.canReviewTasks && reviewQueue.length > 0;
+  const showApprovalQueue = capabilities.canApproveTaskRequests && approvalQueue.length > 0;
+  const isManager = capabilities.canViewExecutiveDashboard && !isPersonalView;
+
+  function canSubmit(task) {
+    return (
+      capabilities.canSubmitTaskReview &&
+      !isTaskLocked?.(task) &&
+      task.assigneeId === personId &&
+      !task.approvalRequired &&
+      !isTaskComplete(task) &&
+      task.status !== "Pending Review"
+    );
+  }
+
+  function taskAction(task) {
+    if (canSubmit(task)) {
+      return (
+        <button
+          className="primary-button compact-button"
+          type="button"
+          onClick={() => onSubmitTaskReview?.(task.id)}
+        >
+          <Send size={14} aria-hidden="true" />
+          {task.qcStatus === "Rejected" || task.status === "Needs Revision" ? "Resubmit" : "Submit"}
+        </button>
+      );
+    }
+    return (
+      <button className="mini-action" type="button" onClick={() => onNavigate("tasks")}>
+        Open
+      </button>
+    );
+  }
+
+  function reviewAction() {
+    return (
+      <button className="primary-button compact-button" type="button" onClick={() => onNavigate("review")}>
+        <SquareCheckBig size={14} aria-hidden="true" />
+        Review
+      </button>
+    );
+  }
+
+  function approvalAction() {
+    return (
+      <button className="primary-button compact-button" type="button" onClick={() => onNavigate("approvals")}>
+        <ClipboardCheck size={14} aria-hidden="true" />
+        Open
+      </button>
+    );
+  }
+
+  const summaryParts = [];
+  if (overdue.length) summaryParts.push(`${overdue.length} overdue`);
+  if (dueToday.length) summaryParts.push(`${dueToday.length} due today`);
+  if (waitingReview.length) summaryParts.push(`${waitingReview.length} awaiting the team lead`);
+  if (showReviewQueue) summaryParts.push(`${reviewQueue.length} to review`);
+  if (showApprovalQueue) summaryParts.push(`${approvalQueue.length} to approve`);
+  if (isManager && stats.delayedProjects) {
+    summaryParts.push(`${stats.delayedProjects} delayed project${stats.delayedProjects > 1 ? "s" : ""}`);
+  }
+  const summaryLine = summaryParts.length
+    ? `You have ${summaryParts.join(", ")}.`
+    : "You're all caught up — nothing needs your attention right now. 🎉";
+
+  // Hero chips are always the person's own workload. Manager-level oversight
+  // numbers live in their own "Team overview" card so nothing is duplicated.
+  const chips = myTasks.length
+    ? [
+        { label: "Overdue", value: overdue.length, tone: "danger", onClick: () => onNavigate("tasks") },
+        { label: "Due today", value: dueToday.length, tone: "warning", onClick: () => onNavigate("tasks") },
+        { label: "Upcoming", value: upcoming.length, tone: "neutral", onClick: () => onNavigate("tasks") },
+        { label: "Waiting review", value: waitingReview.length, tone: "info", onClick: () => onNavigate("tasks") },
+        { label: "Completed", value: completedCount, tone: "success", onClick: () => onNavigate("tasks") },
+      ]
+    : [];
+
+  return (
+    <div className="today-home stack">
+      <section className="today-hero panel">
+        <div className="today-hero-text">
+          <span className="eyebrow">{todayDateLabel()}</span>
+          <h2>
+            {getGreeting()}, {firstName} 👋
+          </h2>
+          <p>{summaryLine}</p>
+        </div>
+        {chips.length ? (
+          <div className="today-chips">
+            {chips.map((chip) => (
+              <button
+                key={chip.label}
+                className={`today-chip today-chip--${chip.tone}`}
+                type="button"
+                onClick={chip.onClick}
+              >
+                <strong>{chip.value}</strong>
+                <span>{chip.label}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </section>
+
+      {focus ? (
+        <section className="today-focus panel">
+          <header className="today-focus-head">
+            <Sun size={18} aria-hidden="true" />
+            <span>Focus now</span>
+            <small>Your most time-sensitive task</small>
+          </header>
+          <TodayTaskRow task={focus} projectName={projectName(focus.projectId)} action={taskAction(focus)} />
+        </section>
+      ) : null}
+
+      {overdueRest.length ? (
+        <TodaySection
+          icon={CircleAlert}
+          title="Overdue"
+          tone="danger"
+          tasks={overdueRest}
+          projectName={projectName}
+          renderAction={taskAction}
+          onSeeAll={() => onNavigate("tasks")}
+        />
+      ) : null}
+
+      {dueTodayRest.length ? (
+        <TodaySection
+          icon={CalendarDays}
+          title="Due today"
+          tone="warning"
+          tasks={dueTodayRest}
+          projectName={projectName}
+          renderAction={taskAction}
+          onSeeAll={() => onNavigate("tasks")}
+        />
+      ) : null}
+
+      {upcomingRest.length ? (
+        <TodaySection
+          icon={CalendarDays}
+          title="Coming up (next 14 days)"
+          tone="neutral"
+          tasks={upcomingRest}
+          projectName={projectName}
+          renderAction={taskAction}
+          onSeeAll={() => onNavigate("tasks")}
+        />
+      ) : null}
+
+      {waitingReview.length ? (
+        <TodaySection
+          icon={SquareCheckBig}
+          title="Submitted — waiting for the team lead"
+          tone="info"
+          tasks={waitingReview}
+          projectName={projectName}
+          renderAction={() => <Badge tone="warning">Waiting review</Badge>}
+        />
+      ) : null}
+
+      {showReviewQueue ? (
+        <TodaySection
+          icon={SquareCheckBig}
+          title="Waiting for your review"
+          tone="info"
+          tasks={reviewQueue}
+          projectName={projectName}
+          renderAction={reviewAction}
+          onSeeAll={() => onNavigate("review")}
+        />
+      ) : null}
+
+      {showApprovalQueue ? (
+        <TodaySection
+          icon={ClipboardCheck}
+          title="Waiting for your approval"
+          tone="info"
+          tasks={approvalQueue}
+          projectName={projectName}
+          renderAction={approvalAction}
+          onSeeAll={() => onNavigate("approvals")}
+        />
+      ) : null}
+
+      {isManager ? (
+        <section className="today-section panel today-manager-card">
+          <header className="today-section-head">
+            <span className="today-section-title">
+              <TrendingUp size={16} aria-hidden="true" />
+              Team overview
+            </span>
+          </header>
+          <div className="today-chips today-chips-wrap">
+            <button className="today-chip today-chip--danger" type="button" onClick={() => onNavigate("dashboard")}>
+              <strong>{stats.delayedProjects}</strong>
+              <span>Delayed projects</span>
+            </button>
+            <button className="today-chip today-chip--warning" type="button" onClick={() => onNavigate("dashboard")}>
+              <strong>{stats.atRiskTasks}</strong>
+              <span>At-risk tasks</span>
+            </button>
+            <button className="today-chip today-chip--info" type="button" onClick={() => onNavigate("approvals")}>
+              <strong>{stats.pendingApprovals}</strong>
+              <span>To approve</span>
+            </button>
+            <button className="today-chip today-chip--neutral" type="button" onClick={() => onNavigate("review")}>
+              <strong>{stats.pendingReviews}</strong>
+              <span>To review</span>
+            </button>
+          </div>
+          <button className="secondary-button" type="button" onClick={() => onNavigate("dashboard")}>
+            <LayoutDashboard size={16} aria-hidden="true" />
+            Open full dashboard
+          </button>
+        </section>
+      ) : null}
     </div>
   );
 }

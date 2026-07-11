@@ -29,6 +29,13 @@ const REQUESTER_ROLES = [
 // deliberately minimal, distraction-free workspace — only "My Tasks", attendance
 // and notifications. No dashboard, projects, map or project detail for them.
 export const VIEW_ACCESS = {
+  // "My Day" smart home — the personalised landing screen for everyone.
+  home: [
+    ...PROJECT_MANAGEMENT_ROLES,
+    ...TEAM_LEAD_ROLES,
+    ...TEAM_MEMBER_ROLES,
+    ...MONITORING_ROLES,
+  ],
   dashboard: [...PROJECT_MANAGEMENT_ROLES, ...TEAM_LEAD_ROLES, ...MONITORING_ROLES],
   report: [...PROJECT_MANAGEMENT_ROLES, ...TEAM_LEAD_ROLES, ...MONITORING_ROLES],
   insights: [...PROJECT_MANAGEMENT_ROLES, ...TEAM_LEAD_ROLES, ...MONITORING_ROLES],

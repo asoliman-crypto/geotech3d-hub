@@ -1569,15 +1569,56 @@ a {
 }
 
 .task-card {
-  padding: 16px 18px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: #ffffff;
   box-shadow: var(--shadow);
+  overflow: hidden;
 }
 
 .task-card.task-row-locked {
   background: #f8fafc;
+}
+
+.task-card-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.task-card-toggle:hover {
+  background: #f8fafc;
+}
+
+.task-card-open .task-card-toggle {
+  border-bottom: 1px solid var(--border);
+}
+
+.task-card-caret {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.task-card-toggle-title {
+  flex: 1 1 200px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-card-body {
+  padding: 16px 18px;
 }
 
 .task-card-head {
@@ -1716,6 +1757,208 @@ a {
   margin-top: 16px;
   padding-top: 14px;
   border-top: 1px solid var(--border);
+}
+
+/* "My Day" smart home */
+.today-home {
+  gap: 16px;
+}
+
+.today-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.today-hero-text h2 {
+  margin: 6px 0 8px;
+  font-size: 26px;
+}
+
+.today-hero-text p {
+  margin: 0;
+  max-width: 620px;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.today-chips {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.today-chip {
+  display: grid;
+  gap: 2px;
+  min-width: 96px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #f8fafc;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.today-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+
+.today-chip strong {
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.today-chip span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.today-chip--danger strong {
+  color: var(--red);
+}
+.today-chip--warning strong {
+  color: var(--amber);
+}
+.today-chip--success strong {
+  color: var(--green);
+}
+.today-chip--info strong {
+  color: var(--blue);
+}
+.today-chip--neutral strong {
+  color: var(--ink);
+}
+
+.today-focus {
+  border-left: 4px solid var(--green);
+}
+
+.today-focus-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.today-focus-head span {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.today-focus-head small {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.today-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.today-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.today-section-count {
+  min-width: 26px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef2f6;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.today-section--danger {
+  border-left: 4px solid var(--red);
+}
+.today-section--warning {
+  border-left: 4px solid var(--amber);
+}
+.today-section--info {
+  border-left: 4px solid var(--blue);
+}
+.today-section--neutral {
+  border-left: 4px solid var(--border);
+}
+
+.today-task-list {
+  display: grid;
+  gap: 10px;
+}
+
+.today-task-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.today-task-main {
+  min-width: 0;
+  flex: 1 1 260px;
+}
+
+.today-task-main strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+.today-task-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.today-task-project {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.today-task-actions {
+  flex-shrink: 0;
+}
+
+.today-task-actions .mini-action {
+  margin-top: 0;
+}
+
+.today-manager-card .secondary-button {
+  margin-top: 14px;
+}
+
+@media (max-width: 640px) {
+  .today-task-actions {
+    width: 100%;
+  }
+  .today-task-actions .primary-button,
+  .today-task-actions .mini-action {
+    width: 100%;
+  }
 }
 
 .mini-action,
