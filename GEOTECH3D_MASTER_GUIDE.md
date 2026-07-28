@@ -65,7 +65,7 @@ https://geotech3d-hub.vercel.app
 
 الحسابين دول **مايشوفوش غير شاشة واحدة** اسمها **Portfolio Status** — مفيهاش أي تفاصيل تانية (لا تاسكات ولا فريق ولا إعدادات). تفاصيلها في قسم 5.
 
-> ⚠️ لازم تتعمل مرة واحدة على السحابة قبل ما تشتغل — شوف قسم 8.6.
+> ✅ الحسابين شغّالين على السحابة ومتأكد منهم (اتعملوا 2026-07-28).
 
 الباسورد للكل: `Geo@123456`
 
@@ -194,21 +194,21 @@ VITE_SUPABASE_ANON_KEY = sb_publishable_xiyOlgF5oZidpKkqPUGD1Q_tjp-L1t7
 
 ---
 
-## 8.6) 🔑 تفعيل حسابات الـ Portfolio على السحابة (مرة واحدة)
+## 8.6) 🔑 إنشاء حسابات جديدة على السحابة
 
-الكود اتنشر خلاص، بس الحسابين (`gm.portfolio` / `pm.portfolio`) لازم يتعملوا مرة واحدة في Supabase عشان يقدروا يدخلوا.
+> ✅ حسابات الـ Portfolio (`gm.portfolio` / `pm.portfolio`) **اتعملت بالفعل يوم 2026-07-28** ومتأكد إنها شغّالة. القسم ده للمستقبل لو حبيت تضيف حسابات تانية.
 
-**1)** هات المفتاح السري: [لوحة Supabase](https://supabase.com/dashboard) → المشروع → **Project Settings** → **API** → انسخ **`service_role`**.
+فيه طريقتين:
 
-**2)** افتح PowerShell في مجلد المشروع وشغّل (حط المفتاح مكان `<المفتاح>`):
+**الطريقة أ — من SQL Editor (من غير أي مفتاح سري):** دي اللي استخدمناها. Supabase **بيرفض** إيميلات `@geotech3d.local` من طرق التسجيل العادية، فالحل إننا نكتب في `auth.users` مباشرة. القالب موجود في `supabase/create-auth-user.sql` — غيّر الإيميل والاسم والدور وشغّله.
+
+**الطريقة ب — بالسكربت (محتاجة المفتاح السري):** هات مفتاح `service_role` من **Project Settings → API**، وبعدين من PowerShell:
 
 ```powershell
 cd "C:\Users\pc\Documents\Codex\2026-05-23\files-mentioned-by-the-user-projects\projects-hub"; $env:SUPABASE_URL="https://fsxxmaehyletvkxdzyif.supabase.co"; $env:SUPABASE_SERVICE_ROLE_KEY="<المفتاح>"; node scripts/add-portfolio-accounts.mjs
 ```
 
-هيطبع إن الحسابين اتعملوا، وبعدها يقدروا يدخلوا بـ `Geo@123456`.
-
-> السكربت آمن لو اتشغّل أكتر من مرة (بيحدّث مش بيكرّر). وبعد ما تخلص، **دوّر المفتاح السري** من نفس الصفحة احتياطياً.
+> ⚠️ أي حساب جديد لازم يبقى موجود كمان في `src/auth/authData.js`، وإلا البرنامج مش هيعرف دوره وصلاحياته.
 
 ---
 
