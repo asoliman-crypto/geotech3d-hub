@@ -27,6 +27,10 @@ export function calculateProjectProgress(projectId, taskList) {
 
 export function getProjectStatus(project, taskList) {
   if (project.status === "Cancelled") return "Cancelled";
+  // A portfolio PM can pin a project's stage by hand; once pinned we stop
+  // deriving it from the tasks, otherwise the manual choice is overwritten
+  // on the next task edit. Clearing the pin restores automatic status.
+  if (project.statusPinned) return project.status;
   const projectTasks = taskList.filter((task) => task.projectId === project.id);
   if (!projectTasks.length) return project.status;
   if (projectTasks.some((task) => task.approvalStatus === "Pending Approval")) return "Pending Approval";

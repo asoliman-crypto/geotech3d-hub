@@ -136,6 +136,7 @@ import geoBrandLogo from "./assets/brand/geotech3d-logo-full.svg";
 
 const navItems = [
   { id: "home", label: "My Day", icon: Sparkles },
+  { id: "portfolio", label: "Portfolio Status", icon: TrendingUp },
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "report", label: "Daily Report", icon: FileText },
   { id: "insights", label: "Reports", icon: BarChart3 },
@@ -218,6 +219,9 @@ const fullProjectViewRoles = [
   ROLES.EXTERNAL_MONITOR,
   ROLES.REGIONAL_FOLLOW_UP,
   ROLES.MANAGEMENT_MONITOR,
+  // Portfolio accounts monitor the entire company portfolio.
+  ROLES.PORTFOLIO_PM,
+  ROLES.PORTFOLIO_GM,
 ];
 const taskLevelRoles = [ROLES.EMPLOYEE, ROLES.TEAM_MEMBER];
 const operationalUserRoles = [
@@ -1671,6 +1675,35 @@ export default function App() {
     });
   }
 
+  // Portfolio PM moves a project between stages. Setting a status pins it so
+  // the automatic task-derived status stops overriding the manual choice;
+  // AUTO_PROJECT_STATUS releases the pin again.
+  function updateProjectStage(projectId, nextStatus) {
+    if (!capabilities.canEditPortfolioStatus) return;
+    const project = projects.find((item) => item.id === projectId);
+    if (!project) return;
+    const previousStatus = project.status;
+
+    setProjects((current) =>
+      current.map((item) => {
+        if (item.id !== projectId) return item;
+        if (nextStatus === AUTO_PROJECT_STATUS) {
+          return { ...item, statusPinned: false };
+        }
+        return { ...item, status: nextStatus, statusPinned: true };
+      }),
+    );
+
+    addAuditEvent(
+      "project",
+      nextStatus === AUTO_PROJECT_STATUS ? "Project status set to automatic" : "Project status updated",
+      nextStatus === AUTO_PROJECT_STATUS
+        ? `${project.name} now follows the automatic status calculated from its tasks (was "${previousStatus}"), set by ${currentUser.name}.`
+        : `${project.name} moved from "${previousStatus}" to "${nextStatus}" by ${currentUser.name}.`,
+      { relatedProjectId: projectId },
+    );
+  }
+
   function deleteProject(projectId) {
     if (!capabilities.canManageProjects) return;
     const project = projects.find((item) => item.id === projectId);
@@ -2101,7 +2134,14 @@ export default function App() {
           <Badge tone={getRoleTone(currentUser.role)}>{currentUser.badge || currentUser.role}</Badge>
         </section>
 
-        <section className="sidebar-filters" aria-label="Project filters">
+        {/* Portfolio accounts only ever see the portfolio board, which is not
+            driven by these filters — showing them would be dead controls. */}
+        <section
+          className="sidebar-filters"
+          aria-label="Project filters"
+          hidden={capabilities.isPortfolioAccount}
+          style={capabilities.isPortfolioAccount ? { display: "none" } : undefined}
+        >
           <div className="sidebar-section-title">
             <div>
               <Filter size={16} aria-hidden="true" />
@@ -2222,6 +2262,18 @@ export default function App() {
             isTaskLocked={isTaskLockedForCurrentUser}
             onNavigate={setActiveView}
             onOpenProject={openProject}
+          />
+        )}
+
+        {activeView === "portfolio" && canAccessView(currentUser, "portfolio") && (
+          <PortfolioDashboard
+            projects={roleScopedProjects}
+            tasks={publishedTasks}
+            employees={workspacePeople}
+            currentUser={currentUser}
+            canEditStatus={capabilities.canEditPortfolioStatus}
+            onChangeStage={updateProjectStage}
+            onPrint={printReport}
           />
         )}
 
@@ -2587,6 +2639,240 @@ function DailyReport({ report, currentUser, onExportCsv, onPrint }) {
           </span>
         </div>
       </section>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Portfolio dashboard — the single screen the GM/PM portfolio accounts see.
+// Projects are grouped into three stages: pipeline, current, historical.
+// ---------------------------------------------------------------------------
+const AUTO_PROJECT_STATUS = "__auto__";
+
+const PORTFOLIO_STAGES = [
+  {
+    id: "pipeline",
+    label: "Pipeline",
+    caption: "Upcoming projects — not started yet",
+    icon: CalendarDays,
+    statuses: ["Planning"],
+  },
+  {
+    id: "current",
+    label: "Current Projects",
+    caption: "Live projects currently in delivery",
+    icon: Activity,
+    statuses: ["In Progress", "In Review", "Waiting for Data", "On Hold", "Delayed", "Pending Approval"],
+  },
+  {
+    id: "historical",
+    label: "Historical",
+    caption: "Delivered and closed projects",
+    icon: Archive,
+    statuses: ["Completed", "Cancelled"],
+  },
+];
+
+function getPortfolioStageId(status) {
+  const stage = PORTFOLIO_STAGES.find((item) => item.statuses.includes(status));
+  // Anything unrecognised is live work rather than pipeline or history.
+  return stage ? stage.id : "current";
+}
+
+function PortfolioProjectCard({ project, tasks, employees, canEditStatus, onChangeStage }) {
+  const manager = employees.find((employee) => employee.id === project.managerId);
+  const projectTasks = tasks.filter((task) => task.projectId === project.id);
+  const doneTasks = projectTasks.filter(isTaskComplete).length;
+  const overdueTasks = projectTasks.filter((task) => isOverdue(task)).length;
+  const progress = Number.isFinite(project.progress) ? project.progress : 0;
+
+  return (
+    <article className="pf-card">
+      <header className="pf-card-head">
+        <div className="pf-card-title">
+          <small>{project.id}</small>
+          <strong>{project.name || "Untitled project"}</strong>
+          {project.client ? <span>{project.client}</span> : null}
+        </div>
+        <StatusBadge value={project.status} />
+      </header>
+
+      <div className="pf-card-progress">
+        <ProgressBar value={progress} />
+      </div>
+
+      <dl className="pf-card-facts">
+        <div>
+          <dt>Manager</dt>
+          <dd>{manager?.name || "Unassigned"}</dd>
+        </div>
+        <div>
+          <dt>Timeline</dt>
+          <dd>{formatDateRange(project.start, project.end)}</dd>
+        </div>
+        <div>
+          <dt>Tasks</dt>
+          <dd>
+            {doneTasks}/{projectTasks.length} done
+            {overdueTasks ? <span className="pf-overdue"> · {overdueTasks} overdue</span> : null}
+          </dd>
+        </div>
+      </dl>
+
+      {canEditStatus ? (
+        <label className="pf-card-control">
+          <span>Move to stage</span>
+          <select
+            value={project.statusPinned ? project.status : AUTO_PROJECT_STATUS}
+            onChange={(event) => onChangeStage(project.id, event.target.value)}
+          >
+            <option value={AUTO_PROJECT_STATUS}>Automatic (follow tasks)</option>
+            {PORTFOLIO_STAGES.map((stage) => (
+              <optgroup label={stage.label} key={stage.id}>
+                {stage.statuses
+                  .filter((status) => status !== "Pending Approval")
+                  .map((status) => (
+                    <option value={status} key={status}>
+                      {status}
+                    </option>
+                  ))}
+              </optgroup>
+            ))}
+          </select>
+          {project.statusPinned ? <small>Pinned manually</small> : <small>Calculated from tasks</small>}
+        </label>
+      ) : null}
+    </article>
+  );
+}
+
+function PortfolioDashboard({
+  projects,
+  tasks,
+  employees,
+  currentUser,
+  canEditStatus,
+  onChangeStage,
+  onPrint,
+}) {
+  const buckets = { pipeline: [], current: [], historical: [] };
+  projects.forEach((project) => {
+    buckets[getPortfolioStageId(project.status)].push(project);
+  });
+
+  const liveProjects = buckets.current;
+  const delayedCount = liveProjects.filter((project) => project.status === "Delayed").length;
+  const avgProgress = liveProjects.length
+    ? Math.round(
+        liveProjects.reduce((total, project) => total + Number(project.progress || 0), 0) /
+          liveProjects.length,
+      )
+    : 0;
+
+  return (
+    <div className="portfolio-dashboard stack">
+      <section className="pf-hero panel">
+        <div>
+          <span className="eyebrow">Portfolio Overview</span>
+          <h2>Project Status Board</h2>
+          <p>
+            {canEditStatus
+              ? "Track every project across pipeline, delivery, and history — and move a project between stages."
+              : "Read-only view of every project across pipeline, delivery, and history."}
+          </p>
+        </div>
+        <div className="pf-hero-side">
+          <div className="pf-user-chip">
+            <strong>{currentUser.name}</strong>
+            <Badge tone={getRoleTone(currentUser.role)}>{currentUser.badge || currentUser.role}</Badge>
+            <small>{canEditStatus ? "Can update project stage" : "Monitoring only"}</small>
+          </div>
+          <ExportBar onPrint={onPrint} />
+        </div>
+      </section>
+
+      <div className="kpi-grid">
+        <KpiCard
+          icon={FolderKanban}
+          label="Total Projects"
+          value={projects.length}
+          helper="Across all stages"
+          tone="blue"
+        />
+        <KpiCard
+          icon={CalendarDays}
+          label="Pipeline"
+          value={buckets.pipeline.length}
+          helper="Not started yet"
+          tone="purple"
+        />
+        <KpiCard
+          icon={Activity}
+          label="Current"
+          value={buckets.current.length}
+          helper="In delivery now"
+          tone="green"
+        />
+        <KpiCard
+          icon={Archive}
+          label="Historical"
+          value={buckets.historical.length}
+          helper="Delivered or closed"
+          tone="amber"
+        />
+        <KpiCard
+          icon={CircleAlert}
+          label="Delayed"
+          value={delayedCount}
+          helper="Need attention"
+          tone="red"
+        />
+        <KpiCard
+          icon={BarChart3}
+          label="Average Progress"
+          value={`${avgProgress}%`}
+          helper="Across current projects"
+          tone="amber"
+        />
+      </div>
+
+      {PORTFOLIO_STAGES.map((stage) => {
+        const stageProjects = buckets[stage.id];
+        const StageIcon = stage.icon;
+        return (
+          <section className={`pf-stage panel pf-stage--${stage.id}`} key={stage.id}>
+            <header className="pf-stage-head">
+              <span className="pf-stage-title">
+                <StageIcon size={18} aria-hidden="true" />
+                <span>
+                  <strong>{stage.label}</strong>
+                  <small>{stage.caption}</small>
+                </span>
+              </span>
+              <Badge tone="neutral">
+                {stageProjects.length} project{stageProjects.length !== 1 ? "s" : ""}
+              </Badge>
+            </header>
+
+            {stageProjects.length ? (
+              <div className="pf-card-grid">
+                {stageProjects.map((project) => (
+                  <PortfolioProjectCard
+                    key={project.id}
+                    project={project}
+                    tasks={tasks}
+                    employees={employees}
+                    canEditStatus={canEditStatus}
+                    onChangeStage={onChangeStage}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="pf-stage-empty">No projects in this stage.</p>
+            )}
+          </section>
+        );
+      })}
     </div>
   );
 }

@@ -13,6 +13,10 @@ export const ROLES = {
   ROLE_MANAGER: "manager",
   GM: "gm",
   ROLE_CEO: "ceo",
+  // Portfolio monitoring accounts: they only ever see the portfolio dashboard.
+  // PM can move a project between pipeline / current / historical, GM watches.
+  PORTFOLIO_PM: "portfolio_pm",
+  PORTFOLIO_GM: "portfolio_gm",
 };
 
 export const ROLE_OPTIONS = [
@@ -28,6 +32,8 @@ export const ROLE_OPTIONS = [
   ROLES.ROLE_MANAGER,
   ROLES.GM,
   ROLES.ROLE_CEO,
+  ROLES.PORTFOLIO_PM,
+  ROLES.PORTFOLIO_GM,
 ];
 
 export const APPROVAL_OWNER_ID = "abdelrahman-soliman";
@@ -191,6 +197,39 @@ const roleAccessUsers = [
   },
 ];
 
+// Portfolio monitoring accounts. Deliberately separate from the operational
+// team accounts: they sign in and land straight on the portfolio dashboard.
+const portfolioUsers = [
+  {
+    id: "portfolio-pm",
+    employeeId: null,
+    name: "Project Manager (Portfolio)",
+    username: "pm.portfolio",
+    email: "pm.portfolio@geotech3d.local",
+    password: "Geo@123456",
+    role: ROLES.PORTFOLIO_PM,
+    badge: "PM - PORTFOLIO",
+    department: "Project Management",
+    title: "Project Manager - Portfolio Control",
+    actualRole: "Portfolio status control",
+    accessType: "Portfolio dashboard - can update project status",
+  },
+  {
+    id: "portfolio-gm",
+    employeeId: null,
+    name: "General Manager (Portfolio)",
+    username: "gm.portfolio",
+    email: "gm.portfolio@geotech3d.local",
+    password: "Geo@123456",
+    role: ROLES.PORTFOLIO_GM,
+    badge: "GM - PORTFOLIO",
+    department: "Executive Management",
+    title: "General Manager - Portfolio Monitoring",
+    actualRole: "Portfolio monitoring",
+    accessType: "Portfolio dashboard - read only",
+  },
+];
+
 function isTeamLeadEmployee(employee) {
   if (employee.id === APPROVAL_OWNER_ID) return false;
   const teamLeadSignal = `${employee.title} ${employee.department}`.toLowerCase();
@@ -245,7 +284,12 @@ function normalizeStoredUser(user) {
   };
 }
 
-export const teamUsers = [...employees.map(toAuthUser), ...executiveUsers, ...roleAccessUsers];
+export const teamUsers = [
+  ...employees.map(toAuthUser),
+  ...executiveUsers,
+  ...roleAccessUsers,
+  ...portfolioUsers,
+];
 
 const retiredSherifIdentifiers = new Set([
   "sherif-gomaa",

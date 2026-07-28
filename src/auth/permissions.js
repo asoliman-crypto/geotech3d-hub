@@ -18,6 +18,9 @@ const PROJECT_MANAGEMENT_ROLES = [
 ];
 const TEAM_LEAD_ROLES = [ROLES.TEAM_LEAD];
 const TEAM_MEMBER_ROLES = [ROLES.EMPLOYEE, ROLES.TEAM_MEMBER];
+// Portfolio accounts see exactly one screen: the portfolio dashboard.
+// PM may change a project's stage; GM is strictly read-only.
+const PORTFOLIO_ROLES = [ROLES.PORTFOLIO_PM, ROLES.PORTFOLIO_GM];
 
 const REQUESTER_ROLES = [
   ROLES.EXTERNAL_MONITOR,
@@ -35,6 +38,14 @@ export const VIEW_ACCESS = {
     ...TEAM_LEAD_ROLES,
     ...TEAM_MEMBER_ROLES,
     ...MONITORING_ROLES,
+  ],
+  // Portfolio dashboard — the ONLY view the portfolio accounts can reach.
+  // Management/CEO can open it too, as an extra summary board.
+  portfolio: [
+    ...PORTFOLIO_ROLES,
+    ...PROJECT_MANAGEMENT_ROLES,
+    ROLES.CEO,
+    ROLES.ROLE_CEO,
   ],
   dashboard: [...PROJECT_MANAGEMENT_ROLES, ...TEAM_LEAD_ROLES, ...MONITORING_ROLES],
   report: [...PROJECT_MANAGEMENT_ROLES, ...TEAM_LEAD_ROLES, ...MONITORING_ROLES],
@@ -182,6 +193,10 @@ export function getCapabilities(user) {
       role === ROLES.ROLE_MANAGER ||
       role === ROLES.GM,
     canManageTrash: canEditOperations || TEAM_LEAD_ROLES.includes(role),
+    // Only the portfolio PM (and real project management) can move a project
+    // between pipeline / current / historical. The portfolio GM cannot.
+    canEditPortfolioStatus: role === ROLES.PORTFOLIO_PM || canEditOperations,
+    isPortfolioAccount: PORTFOLIO_ROLES.includes(role),
     canEditProtectedData: canEditOperations,
     canViewExecutiveDashboard:
       PROJECT_MANAGEMENT_ROLES.includes(role) ||
@@ -207,6 +222,8 @@ export function getCapabilities(user) {
 }
 
 export function getRoleTone(role) {
+  if (role === ROLES.PORTFOLIO_GM) return "executive";
+  if (role === ROLES.PORTFOLIO_PM) return "warning";
   if (role === ROLES.ADMIN) return "danger";
   if (role === ROLES.CEO || role === ROLES.ROLE_CEO) return "executive";
   if (role === ROLES.GM) return "danger";
