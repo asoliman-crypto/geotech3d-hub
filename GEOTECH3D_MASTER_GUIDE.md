@@ -56,6 +56,17 @@ https://geotech3d-hub.vercel.app
 
 **حسابات دخول سريعة إضافية (نفس الأشخاص بأدوار):** `gm` (Mona), `ceo` (Waleed), `abdelrahman` (Abdelrahman).
 
+### 🎯 حسابات متابعة المشاريع (Portfolio) — مضافة 2026-07-28
+
+| الاسم | Username | الإيميل | الصلاحية |
+|------|----------|---------|----------|
+| General Manager (Portfolio) | `gm.portfolio` | gm.portfolio@geotech3d.local | **عرض فقط** — يتابع ولا يعدّل |
+| Project Manager (Portfolio) | `pm.portfolio` | pm.portfolio@geotech3d.local | **يعدّل مرحلة المشروع** |
+
+الحسابين دول **مايشوفوش غير شاشة واحدة** اسمها **Portfolio Status** — مفيهاش أي تفاصيل تانية (لا تاسكات ولا فريق ولا إعدادات). تفاصيلها في قسم 5.
+
+> ⚠️ لازم تتعمل مرة واحدة على السحابة قبل ما تشتغل — شوف قسم 8.6.
+
 الباسورد للكل: `Geo@123456`
 
 ---
@@ -97,6 +108,23 @@ https://geotech3d-hub.vercel.app
 - **خريطة المشاريع (Geospatial Map)** + **مخطط زمني (Gantt)** + **أعباء العمل (Workload)**.
 - **تصدير CSV** للمشاريع والتاسكات والتقارير.
 - **نسخة أوفلاين محمولة (Portable)** — ملف HTML واحد يشتغل من غير إنترنت (`npm run build:portable`).
+
+### 🎯 لوحة متابعة المشاريع (Portfolio Status)
+شاشة مستقلة بتقسّم **كل** مشاريع الشركة لـ 3 مراحل:
+
+| المرحلة | إيه اللي فيها | الحالات |
+|---------|---------------|---------|
+| **Pipeline** | مشاريع قدامنا لسه ماابتدتش | Planning |
+| **Current Projects** | المشاريع الجارية دلوقتي | In Progress · In Review · Waiting for Data · On Hold · Delayed |
+| **Historical** | المشاريع المنتهية والمقفولة | Completed · Cancelled |
+
+فوقيهم شريط مؤشرات: إجمالي المشاريع / البايبلاين / الجارية / التاريخية / المتأخرة / متوسط الإنجاز.
+وكل مشروع كارت فيه: رقمه، اسمه، العميل، الحالة، نسبة الإنجاز، المدير، المدة، وعدد التاسكات (المنجز والمتأخر).
+
+**الـ PM** عنده قائمة "Move to stage" ينقل بيها المشروع بين المراحل. أول ما ينقل مشروع يدوياً بيتثبّت (**Pinned manually**) — يعني النظام يبطّل يحسب حالته تلقائياً من التاسكات، والاختيار اليدوي بيفضل. وفيه خيار **"Automatic (follow tasks)"** يرجّعه للحساب التلقائي.
+**الـ GM** بيشوف نفس اللوحة بالظبط من غير أي قائمة تعديل.
+
+كل تغيير مرحلة بيتسجّل في **سجل التدقيق (Audit Log)**.
 
 ---
 
@@ -163,6 +191,24 @@ VITE_SUPABASE_ANON_KEY = sb_publishable_xiyOlgF5oZidpKkqPUGD1Q_tjp-L1t7
 4. ارجع واختار الريبو واضغط **Connect**
 
 > بعد الخطوة دي: أي `git push` = نشر أوتوماتيك. **بس هي مش ضرورية** — الطريقة الحالية شغّالة تمام.
+
+---
+
+## 8.6) 🔑 تفعيل حسابات الـ Portfolio على السحابة (مرة واحدة)
+
+الكود اتنشر خلاص، بس الحسابين (`gm.portfolio` / `pm.portfolio`) لازم يتعملوا مرة واحدة في Supabase عشان يقدروا يدخلوا.
+
+**1)** هات المفتاح السري: [لوحة Supabase](https://supabase.com/dashboard) → المشروع → **Project Settings** → **API** → انسخ **`service_role`**.
+
+**2)** افتح PowerShell في مجلد المشروع وشغّل (حط المفتاح مكان `<المفتاح>`):
+
+```powershell
+cd "C:\Users\pc\Documents\Codex\2026-05-23\files-mentioned-by-the-user-projects\projects-hub"; $env:SUPABASE_URL="https://fsxxmaehyletvkxdzyif.supabase.co"; $env:SUPABASE_SERVICE_ROLE_KEY="<المفتاح>"; node scripts/add-portfolio-accounts.mjs
+```
+
+هيطبع إن الحسابين اتعملوا، وبعدها يقدروا يدخلوا بـ `Geo@123456`.
+
+> السكربت آمن لو اتشغّل أكتر من مرة (بيحدّث مش بيكرّر). وبعد ما تخلص، **دوّر المفتاح السري** من نفس الصفحة احتياطياً.
 
 ---
 
