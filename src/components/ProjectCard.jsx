@@ -5,7 +5,7 @@ import { calculateProjectProgress, formatDateRange, getProjectStatus } from "../
 export function ProjectCard({ project, employees, tasks, onOpen }) {
   const manager = employees.find((employee) => employee.id === project.managerId);
   const status = getProjectStatus(project, tasks);
-  const progress = calculateProjectProgress(project.id, tasks);
+  const progress = calculateProjectProgress(project.id, tasks, project.progress);
 
   return (
     <button

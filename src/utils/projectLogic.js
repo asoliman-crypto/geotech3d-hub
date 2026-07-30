@@ -17,9 +17,12 @@ export function isOverdue(task, today = new Date()) {
   return end < today;
 }
 
-export function calculateProjectProgress(projectId, taskList) {
+export function calculateProjectProgress(projectId, taskList, fallbackProgress = 0) {
   const projectTasks = taskList.filter((task) => task.projectId === projectId);
-  if (!projectTasks.length) return 0;
+  // With no tasks to average, keep whatever progress the project itself
+  // records. Historical projects logged for reference have no task breakdown,
+  // and forcing them to 0% would misreport delivered work.
+  if (!projectTasks.length) return clampProgress(fallbackProgress);
   return Math.round(
     projectTasks.reduce((sum, task) => sum + Number(task.progress || 0), 0) / projectTasks.length,
   );

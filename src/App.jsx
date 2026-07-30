@@ -629,7 +629,7 @@ export default function App() {
       normalizedProjects.map((project) => ({
         ...project,
         status: getProjectStatus(project, publishedTasks),
-        progress: calculateProjectProgress(project.id, publishedTasks),
+        progress: calculateProjectProgress(project.id, publishedTasks, project.progress),
       })),
     [normalizedProjects, publishedTasks],
   );
@@ -2696,6 +2696,7 @@ function PortfolioProjectCard({ project, tasks, employees, canEditStatus, onChan
         <div className="pf-card-title">
           <small>{project.id}</small>
           <strong>{project.name || "Untitled project"}</strong>
+          {project.teamLabel ? <span className="pf-team-tag">{project.teamLabel}</span> : null}
           {project.client ? <span>{project.client}</span> : null}
         </div>
         <StatusBadge value={project.status} />
