@@ -1691,108 +1691,152 @@ a {
   background: #fbfcfe;
 }
 
-/* Portfolio status board — the GM/PM monitoring dashboard */
-.portfolio-dashboard {
-  gap: 16px;
-}
-
-.pf-hero {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  flex-wrap: wrap;
-  border-left: 4px solid var(--gold, #a0840d);
-}
-
-.pf-hero h2 {
-  margin: 6px 0 8px;
-  font-size: 26px;
-}
-
-.pf-hero p {
-  margin: 0;
-  max-width: 620px;
-  color: var(--muted);
-}
-
-.pf-hero-side {
+/* ---------------------------------------------------------------------------
+   Portfolio status board — deliberately its own look. Three tabs, one stage
+   at a time, and nothing else on the page.
+   --------------------------------------------------------------------------- */
+.portfolio-board {
   display: grid;
-  gap: 10px;
-  justify-items: end;
-}
-
-.pf-user-chip {
-  display: grid;
-  gap: 4px;
-  justify-items: end;
-  padding: 10px 14px;
+  gap: 0;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  background: #f8fafc;
-  text-align: right;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: var(--shadow);
+  overflow: hidden;
 }
 
-.pf-user-chip small {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.pf-stage {
-  border-left: 4px solid var(--border);
-}
-
-.pf-stage--pipeline {
-  border-left-color: var(--purple);
-}
-.pf-stage--current {
-  border-left-color: var(--green);
-}
-.pf-stage--historical {
-  border-left-color: var(--muted);
-}
-
-.pf-stage-head {
+.pf-board-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 14px;
+  padding: 20px 24px;
+  color: #f8fafc;
+  background:
+    linear-gradient(180deg, rgba(160, 132, 13, 0.28), transparent 70%),
+    #1c1b19;
 }
 
-.pf-stage-title {
+.pf-board-kicker {
+  color: rgba(248, 250, 252, 0.65);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.pf-board-head h2 {
+  margin: 4px 0 0;
+  font-size: 24px;
+  color: #ffffff;
+}
+
+.pf-board-side {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
-.pf-stage-title > span {
-  display: grid;
-  gap: 2px;
+.pf-print-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 7px 14px;
+  border: 1px solid rgba(248, 250, 252, 0.28);
+  border-radius: 8px;
+  color: #f8fafc;
+  background: transparent;
+  font-weight: 600;
+  cursor: pointer;
 }
 
-.pf-stage-title strong {
-  font-size: 17px;
+.pf-print-button:hover {
+  background: rgba(248, 250, 252, 0.1);
 }
 
-.pf-stage-title small {
+/* Tabs */
+.pf-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  background: #f8fafc;
+  overflow-x: auto;
+}
+
+.pf-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1 1 0;
+  justify-content: center;
+  min-height: 58px;
+  padding: 14px 18px;
+  border: 0;
+  border-bottom: 3px solid transparent;
   color: var(--muted);
+  background: transparent;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+
+.pf-tab:hover {
+  color: var(--ink);
+  background: #f1f5f9;
+}
+
+.pf-tab.is-active {
+  color: var(--ink);
+  border-bottom-color: var(--gold, #a0840d);
+  background: #ffffff;
+}
+
+.pf-tab-count {
+  min-width: 26px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #475569;
   font-size: 12px;
+  font-weight: 700;
+}
+
+.pf-tab.is-active .pf-tab-count {
+  background: var(--gold, #a0840d);
+  color: #ffffff;
+}
+
+/* Panel */
+.pf-panel {
+  padding: 20px 24px 24px;
+}
+
+.pf-panel-caption {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .pf-stage-empty {
   margin: 0;
-  padding: 18px;
+  padding: 40px 18px;
   border: 1px dashed var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   color: var(--muted);
   text-align: center;
 }
 
 .pf-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
   gap: 14px;
 }
 
@@ -1804,6 +1848,11 @@ a {
   border: 1px solid var(--border);
   border-radius: 12px;
   background: #ffffff;
+  transition: box-shadow 120ms ease;
+}
+
+.pf-card:hover {
+  box-shadow: var(--shadow);
 }
 
 .pf-card-head {
@@ -1838,50 +1887,20 @@ a {
   font-size: 12px;
 }
 
-.pf-card-facts {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-}
-
-.pf-card-facts > div {
+.pf-card-meta {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.pf-card-facts dt {
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
 }
 
-.pf-card-facts dd {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  text-align: right;
-}
-
-.pf-overdue {
-  color: var(--red);
-  font-weight: 700;
-}
-
-.pf-card-control {
-  display: grid;
-  gap: 5px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
-}
-
-.pf-card-control > span {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+.pf-card-meta > span:not(:last-child)::after {
+  content: "·";
+  margin-left: 8px;
+  color: #cbd5e1;
 }
 
 .pf-card-control select {
@@ -1894,20 +1913,14 @@ a {
   background: #ffffff;
 }
 
-.pf-card-control small {
-  color: var(--muted);
-  font-size: 11px;
-}
-
 @media (max-width: 640px) {
-  .pf-hero-side {
-    justify-items: start;
-    width: 100%;
+  .pf-tab-label {
+    display: none;
   }
-  .pf-user-chip {
-    justify-items: start;
-    text-align: left;
-    width: 100%;
+  .pf-board-head,
+  .pf-panel {
+    padding-left: 16px;
+    padding-right: 16px;
   }
 }
 

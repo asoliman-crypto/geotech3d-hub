@@ -2238,7 +2238,11 @@ export default function App() {
               <ShieldCheck size={14} aria-hidden="true" />
               {currentUser.badge || currentUser.role}
             </Badge>
-            <StatusBadge value={selectedProject?.status || "Planning"} />
+            {/* Portfolio accounts have no "selected project", so this badge
+                would just show an arbitrary project's status — pure noise. */}
+            {capabilities.isPortfolioAccount ? null : (
+              <StatusBadge value={selectedProject?.status || "Planning"} />
+            )}
             {capabilities.canCreateProjects ? (
               <button className="primary-button" type="button" onClick={() => setActiveView("new")}>
                 <Plus size={17} aria-hidden="true" />
@@ -2681,9 +2685,9 @@ function getPortfolioStageId(status) {
 
 function PortfolioProjectCard({ project, tasks, employees, canEditStatus, onChangeStage }) {
   const manager = employees.find((employee) => employee.id === project.managerId);
-  const projectTasks = tasks.filter((task) => task.projectId === project.id);
-  const doneTasks = projectTasks.filter(isTaskComplete).length;
-  const overdueTasks = projectTasks.filter((task) => isOverdue(task)).length;
+  const overdueTasks = tasks.filter(
+    (task) => task.projectId === project.id && isOverdue(task),
+  ).length;
   const progress = Number.isFinite(project.progress) ? project.progress : 0;
 
   return (
@@ -2697,31 +2701,16 @@ function PortfolioProjectCard({ project, tasks, employees, canEditStatus, onChan
         <StatusBadge value={project.status} />
       </header>
 
-      <div className="pf-card-progress">
-        <ProgressBar value={progress} />
-      </div>
+      <ProgressBar value={progress} />
 
-      <dl className="pf-card-facts">
-        <div>
-          <dt>Manager</dt>
-          <dd>{manager?.name || "Unassigned"}</dd>
-        </div>
-        <div>
-          <dt>Timeline</dt>
-          <dd>{formatDateRange(project.start, project.end)}</dd>
-        </div>
-        <div>
-          <dt>Tasks</dt>
-          <dd>
-            {doneTasks}/{projectTasks.length} done
-            {overdueTasks ? <span className="pf-overdue"> · {overdueTasks} overdue</span> : null}
-          </dd>
-        </div>
-      </dl>
+      <div className="pf-card-meta">
+        <span>{manager?.name || "Unassigned"}</span>
+        <span>{project.end || "No due date"}</span>
+        {overdueTasks ? <Badge tone="danger">{overdueTasks} overdue</Badge> : null}
+      </div>
 
       {canEditStatus ? (
         <label className="pf-card-control">
-          <span>Move to stage</span>
           <select
             value={project.statusPinned ? project.status : AUTO_PROJECT_STATUS}
             onChange={(event) => onChangeStage(project.id, event.target.value)}
@@ -2739,7 +2728,6 @@ function PortfolioProjectCard({ project, tasks, employees, canEditStatus, onChan
               </optgroup>
             ))}
           </select>
-          {project.statusPinned ? <small>Pinned manually</small> : <small>Calculated from tasks</small>}
         </label>
       ) : null}
     </article>
@@ -2755,124 +2743,72 @@ function PortfolioDashboard({
   onChangeStage,
   onPrint,
 }) {
+  const [activeStage, setActiveStage] = useState("current");
+
   const buckets = { pipeline: [], current: [], historical: [] };
   projects.forEach((project) => {
     buckets[getPortfolioStageId(project.status)].push(project);
   });
 
-  const liveProjects = buckets.current;
-  const delayedCount = liveProjects.filter((project) => project.status === "Delayed").length;
-  const avgProgress = liveProjects.length
-    ? Math.round(
-        liveProjects.reduce((total, project) => total + Number(project.progress || 0), 0) /
-          liveProjects.length,
-      )
-    : 0;
+  const stage = PORTFOLIO_STAGES.find((item) => item.id === activeStage) || PORTFOLIO_STAGES[1];
+  const stageProjects = buckets[stage.id];
 
   return (
-    <div className="portfolio-dashboard stack">
-      <section className="pf-hero panel">
+    <div className="portfolio-board">
+      <header className="pf-board-head">
         <div>
-          <span className="eyebrow">Portfolio Overview</span>
+          <span className="pf-board-kicker">Portfolio</span>
           <h2>Project Status Board</h2>
-          <p>
-            {canEditStatus
-              ? "Track every project across pipeline, delivery, and history — and move a project between stages."
-              : "Read-only view of every project across pipeline, delivery, and history."}
-          </p>
         </div>
-        <div className="pf-hero-side">
-          <div className="pf-user-chip">
-            <strong>{currentUser.name}</strong>
-            <Badge tone={getRoleTone(currentUser.role)}>{currentUser.badge || currentUser.role}</Badge>
-            <small>{canEditStatus ? "Can update project stage" : "Monitoring only"}</small>
-          </div>
-          <ExportBar onPrint={onPrint} />
+        <div className="pf-board-side">
+          <Badge tone={getRoleTone(currentUser.role)}>{currentUser.badge || currentUser.role}</Badge>
+          <button className="pf-print-button" type="button" onClick={onPrint}>
+            <Printer size={15} aria-hidden="true" />
+            Print
+          </button>
         </div>
-      </section>
+      </header>
 
-      <div className="kpi-grid">
-        <KpiCard
-          icon={FolderKanban}
-          label="Total Projects"
-          value={projects.length}
-          helper="Across all stages"
-          tone="blue"
-        />
-        <KpiCard
-          icon={CalendarDays}
-          label="Pipeline"
-          value={buckets.pipeline.length}
-          helper="Not started yet"
-          tone="purple"
-        />
-        <KpiCard
-          icon={Activity}
-          label="Current"
-          value={buckets.current.length}
-          helper="In delivery now"
-          tone="green"
-        />
-        <KpiCard
-          icon={Archive}
-          label="Historical"
-          value={buckets.historical.length}
-          helper="Delivered or closed"
-          tone="amber"
-        />
-        <KpiCard
-          icon={CircleAlert}
-          label="Delayed"
-          value={delayedCount}
-          helper="Need attention"
-          tone="red"
-        />
-        <KpiCard
-          icon={BarChart3}
-          label="Average Progress"
-          value={`${avgProgress}%`}
-          helper="Across current projects"
-          tone="amber"
-        />
+      <div className="pf-tabs" role="tablist" aria-label="Project stages">
+        {PORTFOLIO_STAGES.map((item) => {
+          const TabIcon = item.icon;
+          const isActive = item.id === stage.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              className={`pf-tab${isActive ? " is-active" : ""}`}
+              onClick={() => setActiveStage(item.id)}
+            >
+              <TabIcon size={17} aria-hidden="true" />
+              <span className="pf-tab-label">{item.label}</span>
+              <span className="pf-tab-count">{buckets[item.id].length}</span>
+            </button>
+          );
+        })}
       </div>
 
-      {PORTFOLIO_STAGES.map((stage) => {
-        const stageProjects = buckets[stage.id];
-        const StageIcon = stage.icon;
-        return (
-          <section className={`pf-stage panel pf-stage--${stage.id}`} key={stage.id}>
-            <header className="pf-stage-head">
-              <span className="pf-stage-title">
-                <StageIcon size={18} aria-hidden="true" />
-                <span>
-                  <strong>{stage.label}</strong>
-                  <small>{stage.caption}</small>
-                </span>
-              </span>
-              <Badge tone="neutral">
-                {stageProjects.length} project{stageProjects.length !== 1 ? "s" : ""}
-              </Badge>
-            </header>
-
-            {stageProjects.length ? (
-              <div className="pf-card-grid">
-                {stageProjects.map((project) => (
-                  <PortfolioProjectCard
-                    key={project.id}
-                    project={project}
-                    tasks={tasks}
-                    employees={employees}
-                    canEditStatus={canEditStatus}
-                    onChangeStage={onChangeStage}
-                  />
-                ))}
-              </div>
-            ) : (
-              <p className="pf-stage-empty">No projects in this stage.</p>
-            )}
-          </section>
-        );
-      })}
+      <section className="pf-panel" role="tabpanel" aria-label={stage.label}>
+        <p className="pf-panel-caption">{stage.caption}</p>
+        {stageProjects.length ? (
+          <div className="pf-card-grid">
+            {stageProjects.map((project) => (
+              <PortfolioProjectCard
+                key={project.id}
+                project={project}
+                tasks={tasks}
+                employees={employees}
+                canEditStatus={canEditStatus}
+                onChangeStage={onChangeStage}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="pf-stage-empty">No projects in this stage.</p>
+        )}
+      </section>
     </div>
   );
 }
