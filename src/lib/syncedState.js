@@ -65,6 +65,8 @@ export function useSyncedTable(table, localKey, initialValue, options = {}) {
       const server = serverRef.current;
       const nextMap = new Map(next.map((o) => [idOf(o), o]));
 
+      const prevMap = new Map(prev.map((o) => [idOf(o), o]));
+
       const upserts = [];
       for (const [id, obj] of nextMap) {
         const known = server.get(id);
@@ -72,12 +74,24 @@ export function useSyncedTable(table, localKey, initialValue, options = {}) {
           upserts.push({ id, data: obj });
         }
       }
+
+      // Only delete rows this client actually removed: they were in the
+      // previous local array and are gone from the next one. A row we simply
+      // never held locally (initial load still streaming, realtime event not
+      // arrived, another user just created it) must NEVER be treated as a
+      // deletion — doing so lets a stale tab wipe other people's work.
       const deletes = [];
       for (const id of server.keys()) {
-        if (!nextMap.has(id)) deletes.push(id);
+        if (!nextMap.has(id) && prevMap.has(id)) deletes.push(id);
       }
 
-      serverRef.current = nextMap; // optimistic: assume our write wins
+      // Keep everything we know about the server, apply our own changes on
+      // top. Replacing the map with `nextMap` would drop rows we chose not to
+      // delete and resurrect this bug on the following write.
+      const merged = new Map(server);
+      for (const [id, obj] of nextMap) merged.set(id, obj);
+      for (const id of deletes) merged.delete(id);
+      serverRef.current = merged; // optimistic: assume our write wins
       try {
         if (upserts.length) {
           const { error } = await supabase.from(table).upsert(upserts);
