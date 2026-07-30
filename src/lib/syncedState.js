@@ -61,7 +61,7 @@ export function useSyncedTable(table, localKey, initialValue, options = {}) {
 
   // Push the delta between the previous and next array to Supabase.
   const pushDiff = useCallback(
-    async (prev, next) => {
+    async (prev, next, allowDelete = false) => {
       const server = serverRef.current;
       const nextMap = new Map(next.map((o) => [idOf(o), o]));
 
@@ -75,14 +75,18 @@ export function useSyncedTable(table, localKey, initialValue, options = {}) {
         }
       }
 
-      // Only delete rows this client actually removed: they were in the
-      // previous local array and are gone from the next one. A row we simply
-      // never held locally (initial load still streaming, realtime event not
-      // arrived, another user just created it) must NEVER be treated as a
-      // deletion — doing so lets a stale tab wipe other people's work.
+      // Deletions are OPT-IN. A row missing from the local array is NOT
+      // evidence that the user removed it: the initial load may still be
+      // streaming, a realtime insert may not have arrived, or a teammate may
+      // have just created it. Mirroring "absent locally" onto the shared
+      // database is how one stale tab silently wipes other people's work.
+      // Callers that genuinely remove rows opt in via removeSynced().
+      // Even then, only drop rows this client actually held and then removed.
       const deletes = [];
-      for (const id of server.keys()) {
-        if (!nextMap.has(id) && prevMap.has(id)) deletes.push(id);
+      if (allowDelete) {
+        for (const id of server.keys()) {
+          if (!nextMap.has(id) && prevMap.has(id)) deletes.push(id);
+        }
       }
 
       // Keep everything we know about the server, apply our own changes on
@@ -108,11 +112,25 @@ export function useSyncedTable(table, localKey, initialValue, options = {}) {
     [table],
   );
 
+  // Normal writes: create and update only, never delete.
   const setSynced = useCallback(
     (next) => {
       setValue((prev) => {
         const resolved = typeof next === "function" ? next(prev) : next;
-        if (active) pushDiff(prev, resolved);
+        if (active) pushDiff(prev, resolved, false);
+        return resolved;
+      });
+    },
+    [active, pushDiff],
+  );
+
+  // Explicit removal: the ONLY path that may delete rows from the database.
+  // Use it wherever the user really deletes something (Recycle Bin, reset).
+  const removeSynced = useCallback(
+    (next) => {
+      setValue((prev) => {
+        const resolved = typeof next === "function" ? next(prev) : next;
+        if (active) pushDiff(prev, resolved, true);
         return resolved;
       });
     },
@@ -172,7 +190,7 @@ export function useSyncedTable(table, localKey, initialValue, options = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, table]);
 
-  return [value, setSynced];
+  return [value, setSynced, removeSynced];
 }
 
 /**

@@ -530,12 +530,15 @@ export default function App() {
   const [authReady, setAuthReady] = useState(!backendActive);
   const syncEnabled = backendActive && Boolean(session);
 
-  const [projects, setProjects] = useSyncedTable("projects", "projects-hub.projects", initialProjects, { enabled: syncEnabled });
-  const [tasks, setTasks] = useSyncedTable("tasks", "projects-hub.tasks", initialTasks, { enabled: syncEnabled });
-  const [notifications, setNotifications] = useSyncedTable("notifications", "projects-hub.notifications", [], { enabled: syncEnabled });
-  const [comments, setComments] = useSyncedTable("comments", "projects-hub.comments", [], { enabled: syncEnabled });
-  const [attendanceRecords, setAttendanceRecords] = useSyncedTable("attendance", "projects-hub.attendance", [], { enabled: syncEnabled });
-  const [auditLog, setAuditLog] = useSyncedTable("audit_log", "projects-hub.auditLog", [], { enabled: syncEnabled });
+  // Third element is the explicit-removal setter — the only one allowed to
+  // delete rows from the shared database. Everything else is create/update
+  // only, so a stale tab can never wipe a teammate's records.
+  const [projects, setProjects, removeProjects] = useSyncedTable("projects", "projects-hub.projects", initialProjects, { enabled: syncEnabled });
+  const [tasks, setTasks, removeTasks] = useSyncedTable("tasks", "projects-hub.tasks", initialTasks, { enabled: syncEnabled });
+  const [notifications, setNotifications, removeNotifications] = useSyncedTable("notifications", "projects-hub.notifications", [], { enabled: syncEnabled });
+  const [comments, setComments, removeComments] = useSyncedTable("comments", "projects-hub.comments", [], { enabled: syncEnabled });
+  const [attendanceRecords, setAttendanceRecords, removeAttendanceRecords] = useSyncedTable("attendance", "projects-hub.attendance", [], { enabled: syncEnabled });
+  const [auditLog, setAuditLog, removeAuditLog] = useSyncedTable("audit_log", "projects-hub.auditLog", [], { enabled: syncEnabled });
   const [authUsers, setAuthUsers] = useSyncedTable("profiles", "projects-hub.authUsers", teamUsers, { enabled: syncEnabled });
   const [removedUserIds, setRemovedUserIds] = useSyncedObject("removedUserIds", "projects-hub.removedUserIds", [], { enabled: syncEnabled });
   const [trash, setTrash] = useSyncedObject("trash", "projects-hub.trash", [], { enabled: syncEnabled });
@@ -1661,7 +1664,7 @@ export default function App() {
     const task = tasks.find((item) => String(item.id) === String(taskId));
     if (!task) return;
     const project = projects.find((item) => item.id === task.projectId);
-    setTasks((current) => current.filter((item) => String(item.id) !== String(taskId)));
+    removeTasks((current) => current.filter((item) => String(item.id) !== String(taskId)));
     setTrash((current) => [
       {
         trashId: createRecordId("trash"),
@@ -1713,8 +1716,8 @@ export default function App() {
     const project = projects.find((item) => item.id === projectId);
     if (!project) return;
     const projectTasks = tasks.filter((item) => item.projectId === projectId);
-    setProjects((current) => current.filter((item) => item.id !== projectId));
-    setTasks((current) => current.filter((item) => item.projectId !== projectId));
+    removeProjects((current) => current.filter((item) => item.id !== projectId));
+    removeTasks((current) => current.filter((item) => item.projectId !== projectId));
     setTrash((current) => [
       {
         trashId: createRecordId("trash"),
@@ -2032,12 +2035,13 @@ export default function App() {
   }
 
   function resetWorkspaceData() {
-    setProjects(initialProjects);
-    setTasks(initialTasks);
-    setNotifications([]);
-    setComments([]);
-    setAttendanceRecords([]);
-    setAuditLog([]);
+    // A deliberate wipe, so this is one of the few places allowed to delete.
+    removeProjects(initialProjects);
+    removeTasks(initialTasks);
+    removeNotifications([]);
+    removeComments([]);
+    removeAttendanceRecords([]);
+    removeAuditLog([]);
     setAuthUsers(teamUsers);
     setRemovedUserIds([]);
     setSelectedProjectId(initialProjects[0]?.id || "");
