@@ -908,18 +908,22 @@ export default function App() {
     return auditLog.filter((event) => event.actorId === currentUser?.id || event.actorEmployeeId === currentUser?.employeeId);
   }, [auditLog, capabilities.canViewAuditLog, currentUser]);
 
+  // These normalise-in-place effects must read the LIVE state, not the array
+  // captured when the effect was scheduled. Writing back a stale snapshot
+  // makes the sync layer see rows that arrived meanwhile as "removed" and
+  // delete them from the shared database.
   useEffect(() => {
-    const migratedProjects = normalizeProjectsForEmployees(projects);
-    if (JSON.stringify(migratedProjects) !== JSON.stringify(projects)) {
-      setProjects(migratedProjects);
-    }
+    setProjects((current) => {
+      const migrated = normalizeProjectsForEmployees(current);
+      return JSON.stringify(migrated) === JSON.stringify(current) ? current : migrated;
+    });
   }, [projects, setProjects]);
 
   useEffect(() => {
-    const migratedTasks = normalizeTasksForEmployees(tasks);
-    if (JSON.stringify(migratedTasks) !== JSON.stringify(tasks)) {
-      setTasks(migratedTasks);
-    }
+    setTasks((current) => {
+      const migrated = normalizeTasksForEmployees(current);
+      return JSON.stringify(migrated) === JSON.stringify(current) ? current : migrated;
+    });
   }, [tasks, setTasks]);
 
   useEffect(() => {
