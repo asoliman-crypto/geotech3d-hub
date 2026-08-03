@@ -2758,6 +2758,23 @@ function getPortfolioStageId(status) {
   return stage ? stage.id : "current";
 }
 
+// Departments the board can be filtered by. "all" keeps the whole portfolio
+// visible, which is what the board opens on.
+const PORTFOLIO_DEPARTMENTS = [
+  { id: "all", label: "All Departments", teamLabel: null },
+  { id: "geomatics", label: "Geomatics", teamLabel: "Geomatics Team" },
+  { id: "architecture", label: "Architecture", teamLabel: "Architecture Team" },
+  { id: "gis", label: "GIS", teamLabel: "GIS Team" },
+];
+const OTHER_DEPARTMENT = { id: "other", label: "Unassigned", teamLabel: null };
+
+function getDepartmentId(project) {
+  const match = PORTFOLIO_DEPARTMENTS.find(
+    (dept) => dept.teamLabel && dept.teamLabel === project?.teamLabel,
+  );
+  return match ? match.id : OTHER_DEPARTMENT.id;
+}
+
 function PortfolioProjectCard({ project, tasks, employees, canEditStatus, onChangeStage }) {
   const manager = employees.find((employee) => employee.id === project.managerId);
   const overdueTasks = tasks.filter(
@@ -2810,17 +2827,19 @@ function PortfolioProjectCard({ project, tasks, employees, canEditStatus, onChan
   );
 }
 
-const blankPortfolioDraft = (stageId) => ({
+const blankPortfolioDraft = (stageId, teamLabel) => ({
   name: "",
   client: "",
-  teamLabel: PORTFOLIO_TEAMS[0].label,
+  // Pre-select the department the board is currently filtered to, so adding a
+  // project from inside a department lands in that department by default.
+  teamLabel: teamLabel || PORTFOLIO_TEAMS[0].label,
   stageId: stageId || "current",
   end: "",
   progress: "",
 });
 
-function PortfolioNewProjectForm({ stageId, onCancel, onCreate }) {
-  const [draft, setDraft] = useState(() => blankPortfolioDraft(stageId));
+function PortfolioNewProjectForm({ stageId, teamLabel, onCancel, onCreate }) {
+  const [draft, setDraft] = useState(() => blankPortfolioDraft(stageId, teamLabel));
   const [error, setError] = useState("");
   const set = (patch) => setDraft((current) => ({ ...current, ...patch }));
 
@@ -2831,7 +2850,7 @@ function PortfolioNewProjectForm({ stageId, onCancel, onCreate }) {
       return;
     }
     onCreate(draft);
-    setDraft(blankPortfolioDraft(stageId));
+    setDraft(blankPortfolioDraft(stageId, teamLabel));
     setError("");
   }
 
@@ -2919,10 +2938,30 @@ function PortfolioDashboard({
   onPrint,
 }) {
   const [activeStage, setActiveStage] = useState("current");
+  const [activeDept, setActiveDept] = useState("all");
   const [addingProject, setAddingProject] = useState(false);
 
-  const buckets = { pipeline: [], current: [], historical: [] };
+  // Department counts always cover the whole portfolio, so switching a stage
+  // never makes a department look empty when it isn't.
+  const deptCounts = {};
   projects.forEach((project) => {
+    const id = getDepartmentId(project);
+    deptCounts[id] = (deptCounts[id] || 0) + 1;
+  });
+  deptCounts.all = projects.length;
+
+  const departments = [
+    ...PORTFOLIO_DEPARTMENTS,
+    ...(deptCounts[OTHER_DEPARTMENT.id] ? [OTHER_DEPARTMENT] : []),
+  ];
+  const dept = departments.find((item) => item.id === activeDept) || departments[0];
+
+  const deptProjects =
+    dept.id === "all" ? projects : projects.filter((project) => getDepartmentId(project) === dept.id);
+
+  // Stage counts follow the selected department.
+  const buckets = { pipeline: [], current: [], historical: [] };
+  deptProjects.forEach((project) => {
     buckets[getPortfolioStageId(project.status)].push(project);
   });
 
@@ -2955,60 +2994,93 @@ function PortfolioDashboard({
         </div>
       </header>
 
-      <div className="pf-tabs" role="tablist" aria-label="Project stages">
-        {PORTFOLIO_STAGES.map((item) => {
-          const TabIcon = item.icon;
-          const isActive = item.id === stage.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              className={`pf-tab${isActive ? " is-active" : ""}`}
-              onClick={() => setActiveStage(item.id)}
-            >
-              <TabIcon size={17} aria-hidden="true" />
-              <span className="pf-tab-label">{item.label}</span>
-              <span className="pf-tab-count">{buckets[item.id].length}</span>
-            </button>
-          );
-        })}
-      </div>
+      <div className="pf-body">
+        <nav className="pf-depts" aria-label="Departments">
+          <span className="pf-depts-heading">Departments</span>
+          {departments.map((item) => {
+            const isActive = item.id === dept.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                aria-current={isActive ? "true" : undefined}
+                className={`pf-dept${isActive ? " is-active" : ""}`}
+                onClick={() => setActiveDept(item.id)}
+              >
+                <span className="pf-dept-label">{item.label}</span>
+                <span className="pf-dept-count">{deptCounts[item.id] || 0}</span>
+              </button>
+            );
+          })}
+        </nav>
 
-      <section className="pf-panel" role="tabpanel" aria-label={stage.label}>
-        {canEditStatus && addingProject ? (
-          <PortfolioNewProjectForm
-            stageId={stage.id}
-            onCancel={() => setAddingProject(false)}
-            onCreate={(draft) => {
-              const created = onCreateProject(draft);
-              if (created) {
-                setActiveStage(draft.stageId);
-                setAddingProject(false);
-              }
-            }}
-          />
-        ) : null}
-
-        <p className="pf-panel-caption">{stage.caption}</p>
-        {stageProjects.length ? (
-          <div className="pf-card-grid">
-            {stageProjects.map((project) => (
-              <PortfolioProjectCard
-                key={project.id}
-                project={project}
-                tasks={tasks}
-                employees={employees}
-                canEditStatus={canEditStatus}
-                onChangeStage={onChangeStage}
-              />
-            ))}
+        <div className="pf-main">
+          <div className="pf-tabs" role="tablist" aria-label="Project stages">
+            {PORTFOLIO_STAGES.map((item) => {
+              const TabIcon = item.icon;
+              const isActive = item.id === stage.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  className={`pf-tab${isActive ? " is-active" : ""}`}
+                  onClick={() => setActiveStage(item.id)}
+                >
+                  <TabIcon size={17} aria-hidden="true" />
+                  <span className="pf-tab-label">{item.label}</span>
+                  <span className="pf-tab-count">{buckets[item.id].length}</span>
+                </button>
+              );
+            })}
           </div>
-        ) : (
-          <p className="pf-stage-empty">No projects in this stage.</p>
-        )}
-      </section>
+
+          <section className="pf-panel" role="tabpanel" aria-label={stage.label}>
+            {canEditStatus && addingProject ? (
+              <PortfolioNewProjectForm
+                stageId={stage.id}
+                teamLabel={dept.teamLabel}
+                onCancel={() => setAddingProject(false)}
+                onCreate={(draft) => {
+                  const created = onCreateProject(draft);
+                  if (created) {
+                    setActiveStage(draft.stageId);
+                    setActiveDept(getDepartmentId(created));
+                    setAddingProject(false);
+                  }
+                }}
+              />
+            ) : null}
+
+            <p className="pf-panel-caption">
+              {stage.caption}
+              {dept.id === "all" ? "" : ` — ${dept.label} department`}
+            </p>
+
+            {stageProjects.length ? (
+              <div className="pf-card-grid">
+                {stageProjects.map((project) => (
+                  <PortfolioProjectCard
+                    key={project.id}
+                    project={project}
+                    tasks={tasks}
+                    employees={employees}
+                    canEditStatus={canEditStatus}
+                    onChangeStage={onChangeStage}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="pf-stage-empty">
+                {dept.id === "all"
+                  ? "No projects in this stage."
+                  : `No ${dept.label} projects in this stage.`}
+              </p>
+            )}
+          </section>
+        </div>
+      </div>
     </div>
   );
 }
