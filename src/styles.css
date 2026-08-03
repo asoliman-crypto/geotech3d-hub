@@ -1757,6 +1757,87 @@ a {
   background: rgba(248, 250, 252, 0.1);
 }
 
+.pf-add-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 7px 15px;
+  border: 0;
+  border-radius: 8px;
+  color: #1c1b19;
+  background: var(--gold, #a0840d);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pf-add-button:hover {
+  filter: brightness(1.08);
+}
+
+/* Inline "add project" form on the board */
+.pf-new-form {
+  padding: 18px;
+  margin-bottom: 18px;
+  border: 1px solid rgba(160, 132, 13, 0.35);
+  border-radius: 12px;
+  background: rgba(160, 132, 13, 0.06);
+}
+
+.pf-new-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px 14px;
+}
+
+.pf-new-field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.pf-new-field-wide {
+  grid-column: 1 / -1;
+}
+
+.pf-new-field > span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.pf-new-field input,
+.pf-new-field select {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: var(--ink);
+  background: #ffffff;
+}
+
+.pf-new-error {
+  margin: 12px 0 0;
+  color: var(--red);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pf-new-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.pf-new-actions .mini-action {
+  margin-top: 0;
+}
+
 /* Tabs */
 .pf-tabs {
   display: flex;

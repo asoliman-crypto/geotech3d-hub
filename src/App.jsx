@@ -1682,6 +1682,60 @@ export default function App() {
     });
   }
 
+  // Portfolio PM adds a project straight from the status board. The row is
+  // written fully-formed (including the fields normalizeProjectsForEmployees
+  // fills in) so no client needs to rewrite it afterwards.
+  function createPortfolioProject(draft) {
+    if (!capabilities.canEditPortfolioStatus) return null;
+    const name = String(draft?.name || "").trim();
+    if (!name) return null;
+
+    const stageId = draft.stageId in STAGE_STATUS ? draft.stageId : "current";
+    const status = STAGE_STATUS[stageId];
+    const team = PORTFOLIO_TEAMS.find((item) => item.label === draft.teamLabel) || PORTFOLIO_TEAMS[0];
+    const managerId = employees.some((employee) => employee.id === team.managerId)
+      ? team.managerId
+      : employees[0].id;
+
+    const typedProgress = String(draft.progress ?? "").trim();
+    const progress = typedProgress
+      ? clampProgress(typedProgress)
+      : status === "Completed"
+        ? 100
+        : 0;
+
+    const project = {
+      id: makeProjectId(normalizedProjects),
+      name,
+      client: String(draft.client || "").trim(),
+      teamLabel: team.label,
+      managerId,
+      team: [managerId],
+      status,
+      statusPinned: true,
+      priority: "Medium",
+      progress,
+      start: isoToday,
+      end: String(draft.end || "").trim(),
+      requirements: "",
+      dataLinks: [],
+      cancelledBy: "",
+      cancelledByName: "",
+      cancelledAt: "",
+      cancellationReason: "",
+      cancellationTaskAction: "",
+    };
+
+    setProjects((current) => [project, ...current]);
+    addAuditEvent(
+      "project",
+      "Project created",
+      `${name} was added to the ${team.label} portfolio as "${status}" by ${currentUser.name}.`,
+      { relatedProjectId: project.id },
+    );
+    return project;
+  }
+
   // Portfolio PM moves a project between stages. Setting a status pins it so
   // the automatic task-derived status stops overriding the manual choice;
   // AUTO_PROJECT_STATUS releases the pin again.
@@ -2285,6 +2339,7 @@ export default function App() {
             currentUser={currentUser}
             canEditStatus={capabilities.canEditPortfolioStatus}
             onChangeStage={updateProjectStage}
+            onCreateProject={createPortfolioProject}
             onPrint={printReport}
           />
         )}
@@ -2685,6 +2740,18 @@ const PORTFOLIO_STAGES = [
   },
 ];
 
+// Delivering teams a portfolio project can belong to, with the lead who owns
+// it. Falls back safely if an id ever stops matching an employee.
+const PORTFOLIO_TEAMS = [
+  { label: "Geomatics Team", managerId: "mahmoud-elkady" },
+  { label: "GIS Team", managerId: "engy-yosry" },
+  { label: "Architecture Team", managerId: "mayar-abd-elazeem" },
+];
+
+// New projects are created straight into a stage, so map each stage to the
+// status that lands the project in that tab.
+const STAGE_STATUS = { pipeline: "Planning", current: "In Progress", historical: "Completed" };
+
 function getPortfolioStageId(status) {
   const stage = PORTFOLIO_STAGES.find((item) => item.statuses.includes(status));
   // Anything unrecognised is live work rather than pipeline or history.
@@ -2743,6 +2810,104 @@ function PortfolioProjectCard({ project, tasks, employees, canEditStatus, onChan
   );
 }
 
+const blankPortfolioDraft = (stageId) => ({
+  name: "",
+  client: "",
+  teamLabel: PORTFOLIO_TEAMS[0].label,
+  stageId: stageId || "current",
+  end: "",
+  progress: "",
+});
+
+function PortfolioNewProjectForm({ stageId, onCancel, onCreate }) {
+  const [draft, setDraft] = useState(() => blankPortfolioDraft(stageId));
+  const [error, setError] = useState("");
+  const set = (patch) => setDraft((current) => ({ ...current, ...patch }));
+
+  function submit(event) {
+    event.preventDefault();
+    if (!draft.name.trim()) {
+      setError("Give the project a name.");
+      return;
+    }
+    onCreate(draft);
+    setDraft(blankPortfolioDraft(stageId));
+    setError("");
+  }
+
+  return (
+    <form className="pf-new-form" onSubmit={submit}>
+      <div className="pf-new-grid">
+        <label className="pf-new-field pf-new-field-wide">
+          <span>Project name</span>
+          <input
+            value={draft.name}
+            onChange={(event) => set({ name: event.target.value })}
+            placeholder="Example: Marina Tower – Phase 1"
+            autoFocus
+          />
+        </label>
+
+        <label className="pf-new-field">
+          <span>Team</span>
+          <select value={draft.teamLabel} onChange={(event) => set({ teamLabel: event.target.value })}>
+            {PORTFOLIO_TEAMS.map((team) => (
+              <option value={team.label} key={team.label}>
+                {team.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="pf-new-field">
+          <span>Stage</span>
+          <select value={draft.stageId} onChange={(event) => set({ stageId: event.target.value })}>
+            {PORTFOLIO_STAGES.map((stage) => (
+              <option value={stage.id} key={stage.id}>
+                {stage.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="pf-new-field">
+          <span>Client (optional)</span>
+          <input value={draft.client} onChange={(event) => set({ client: event.target.value })} />
+        </label>
+
+        <label className="pf-new-field">
+          <span>Due date (optional)</span>
+          <input type="date" value={draft.end} onChange={(event) => set({ end: event.target.value })} />
+        </label>
+
+        <label className="pf-new-field">
+          <span>Progress % (optional)</span>
+          <input
+            type="number"
+            min="0"
+            max="100"
+            value={draft.progress}
+            placeholder={draft.stageId === "historical" ? "100" : "0"}
+            onChange={(event) => set({ progress: event.target.value })}
+          />
+        </label>
+      </div>
+
+      {error ? <p className="pf-new-error">{error}</p> : null}
+
+      <div className="pf-new-actions">
+        <button className="primary-button compact-button" type="submit">
+          <Plus size={15} aria-hidden="true" />
+          Add project
+        </button>
+        <button className="mini-action" type="button" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function PortfolioDashboard({
   projects,
   tasks,
@@ -2750,9 +2915,11 @@ function PortfolioDashboard({
   currentUser,
   canEditStatus,
   onChangeStage,
+  onCreateProject,
   onPrint,
 }) {
   const [activeStage, setActiveStage] = useState("current");
+  const [addingProject, setAddingProject] = useState(false);
 
   const buckets = { pipeline: [], current: [], historical: [] };
   projects.forEach((project) => {
@@ -2771,6 +2938,16 @@ function PortfolioDashboard({
         </div>
         <div className="pf-board-side">
           <Badge tone={getRoleTone(currentUser.role)}>{currentUser.badge || currentUser.role}</Badge>
+          {canEditStatus ? (
+            <button
+              className="pf-add-button"
+              type="button"
+              onClick={() => setAddingProject((open) => !open)}
+            >
+              <Plus size={16} aria-hidden="true" />
+              New Project
+            </button>
+          ) : null}
           <button className="pf-print-button" type="button" onClick={onPrint}>
             <Printer size={15} aria-hidden="true" />
             Print
@@ -2800,6 +2977,20 @@ function PortfolioDashboard({
       </div>
 
       <section className="pf-panel" role="tabpanel" aria-label={stage.label}>
+        {canEditStatus && addingProject ? (
+          <PortfolioNewProjectForm
+            stageId={stage.id}
+            onCancel={() => setAddingProject(false)}
+            onCreate={(draft) => {
+              const created = onCreateProject(draft);
+              if (created) {
+                setActiveStage(draft.stageId);
+                setAddingProject(false);
+              }
+            }}
+          />
+        ) : null}
+
         <p className="pf-panel-caption">{stage.caption}</p>
         {stageProjects.length ? (
           <div className="pf-card-grid">
