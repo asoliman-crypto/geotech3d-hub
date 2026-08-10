@@ -18,6 +18,7 @@ import {
   Filter,
   FolderKanban,
   GanttChartSquare,
+  KeyRound,
   LayoutDashboard,
   Link2,
   ListChecks,
@@ -568,6 +569,7 @@ export default function App() {
   const [linkDraft, setLinkDraft] = useState({ title: "", url: "" });
   const [taskRequestMessage, setTaskRequestMessage] = useState("");
   const [cancelProjectDraft, setCancelProjectDraft] = useState(null);
+  const [changingPassword, setChangingPassword] = useState(false);
   const [loader, setLoader] = useState({ active: false, label: "Loading workspace" });
 
   const normalizedProjects = useMemo(() => normalizeProjectsForEmployees(projects), [projects]);
@@ -1682,6 +1684,39 @@ export default function App() {
     });
   }
 
+  // Anyone can change their own password. The current one is verified first —
+  // Supabase would happily accept a new password from an already-signed-in
+  // session, which would let anyone at an unlocked machine take the account.
+  async function changeOwnPassword(currentPassword, nextPassword) {
+    if (!currentUser) return { ok: false, message: "You are not signed in." };
+
+    if (backendActive) {
+      const { error: checkError } = await supabase.auth.signInWithPassword({
+        email: currentUser.email,
+        password: currentPassword,
+      });
+      if (checkError) return { ok: false, message: "Your current password is not correct." };
+
+      const { error } = await supabase.auth.updateUser({ password: nextPassword });
+      if (error) return { ok: false, message: error.message || "Could not change the password." };
+
+      addAuditEvent("auth", "Password changed", `${currentUser.name} changed their own password.`);
+      return { ok: true };
+    }
+
+    // Local/portable mode keeps credentials in the workspace user list.
+    const stored = safeAuthUsers.find((user) => user.id === currentUser.id);
+    const storedPassword = normalizedAuthUsers.find((user) => user.id === currentUser.id)?.password;
+    if (!stored || storedPassword !== currentPassword) {
+      return { ok: false, message: "Your current password is not correct." };
+    }
+    setAuthUsers((current) =>
+      current.map((user) => (user.id === currentUser.id ? { ...user, password: nextPassword } : user)),
+    );
+    addAuditEvent("auth", "Password changed", `${currentUser.name} changed their own password.`);
+    return { ok: true };
+  }
+
   // Portfolio PM adds a project straight from the status board. The row is
   // written fully-formed (including the fields normalizeProjectsForEmployees
   // fills in) so no client needs to rewrite it afterwards.
@@ -2269,6 +2304,18 @@ export default function App() {
         </section>
 
         <div className="sidebar-bottom-actions">
+          {/* Available to every role, including the portfolio accounts whose
+              only view is the status board — everyone must be able to secure
+              their own account. */}
+          <button
+            className="ghost-button"
+            type="button"
+            onClick={() => setChangingPassword(true)}
+            title="Change password"
+          >
+            <KeyRound size={17} aria-hidden="true" />
+            <span className="sidebar-label">Change password</span>
+          </button>
           {capabilities.canManageSettings ? (
             <button className="ghost-button" type="button" onClick={resetWorkspaceData} title="Reset workspace data">
               <RotateCcw size={17} aria-hidden="true" />
@@ -2565,6 +2612,14 @@ export default function App() {
 
         {activeView === "settings" && capabilities.canManageSettings && <SettingsPage />}
       </main>
+      {changingPassword ? (
+        <ChangePasswordModal
+          currentUser={currentUser}
+          onClose={() => setChangingPassword(false)}
+          onSubmit={changeOwnPassword}
+        />
+      ) : null}
+
       {cancelProjectDraft ? (
         <CancelProjectModal
           draft={cancelProjectDraft}
@@ -4323,6 +4378,110 @@ function ReviewQueuePage({ tasks, projects, employees, currentUser, onReviewTask
         <EmptyState title="Review queue clear" text="Submitted tasks waiting for Team Lead QC will appear here." />
       )}
     </section>
+  );
+}
+
+const MIN_PASSWORD_LENGTH = 8;
+
+function ChangePasswordModal({ currentUser, onClose, onSubmit }) {
+  const [form, setForm] = useState({ current: "", next: "", confirm: "" });
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const set = (patch) => {
+    setForm((value) => ({ ...value, ...patch }));
+    setError("");
+  };
+
+  async function submit(event) {
+    event.preventDefault();
+    if (!form.current) return setError("Enter your current password.");
+    if (form.next.length < MIN_PASSWORD_LENGTH) {
+      return setError(`The new password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+    }
+    if (form.next === form.current) return setError("The new password must be different from the current one.");
+    if (form.next !== form.confirm) return setError("The two new passwords do not match.");
+
+    setSaving(true);
+    const result = await onSubmit(form.current, form.next);
+    setSaving(false);
+    if (!result?.ok) return setError(result?.message || "Could not change the password.");
+    setDone(true);
+  }
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <form className="confirm-modal panel change-password-modal" onSubmit={submit} noValidate>
+        <div className="modal-title-row">
+          <div>
+            <span className="eyebrow">Account security</span>
+            <h3>Change password</h3>
+          </div>
+          <button className="icon-button" type="button" aria-label="Close change password" onClick={onClose}>
+            <X size={18} aria-hidden="true" />
+          </button>
+        </div>
+
+        {done ? (
+          <>
+            <div className="success-notice">
+              Your password has been changed. Use the new one the next time you sign in.
+            </div>
+            <div className="modal-actions">
+              <button className="primary-button" type="button" onClick={onClose}>
+                Done
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="change-password-intro">
+              Signed in as <strong>{currentUser.name}</strong> ({currentUser.username}). Pick a password
+              only you know — at least {MIN_PASSWORD_LENGTH} characters.
+            </p>
+
+            <Field label="Current password">
+              <input
+                type="password"
+                value={form.current}
+                onChange={(event) => set({ current: event.target.value })}
+                autoComplete="current-password"
+                autoFocus
+              />
+            </Field>
+
+            <Field label="New password">
+              <input
+                type="password"
+                value={form.next}
+                onChange={(event) => set({ next: event.target.value })}
+                autoComplete="new-password"
+              />
+            </Field>
+
+            <Field label="Confirm new password">
+              <input
+                type="password"
+                value={form.confirm}
+                onChange={(event) => set({ confirm: event.target.value })}
+                autoComplete="new-password"
+              />
+            </Field>
+
+            {error ? <div className="management-message management-message-error">{error}</div> : null}
+
+            <div className="modal-actions">
+              <button className="secondary-button" type="button" onClick={onClose} disabled={saving}>
+                Cancel
+              </button>
+              <button className="primary-button" type="submit" disabled={saving}>
+                {saving ? "Saving…" : "Change password"}
+              </button>
+            </div>
+          </>
+        )}
+      </form>
+    </div>
   );
 }
 

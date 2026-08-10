@@ -2995,6 +2995,21 @@ a {
   width: min(520px, 100%);
 }
 
+.change-password-modal {
+  max-width: 440px;
+}
+
+.change-password-intro {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.change-password-intro strong {
+  color: var(--ink);
+}
+
 .modal-title-row {
   display: flex;
   align-items: flex-start;
