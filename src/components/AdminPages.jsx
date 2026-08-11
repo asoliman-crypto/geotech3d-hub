@@ -40,9 +40,10 @@ export function UsersPage({
     });
   }
 
-  function submitUser(event) {
+  async function submitUser(event) {
     event.preventDefault();
-    const result = onAddUser(userDraft);
+    // Creating the sign-in credential is a network call in cloud mode.
+    const result = await onAddUser(userDraft);
     showResult(result);
     if (result?.ok) {
       setUserDraft(emptyUserDraft);

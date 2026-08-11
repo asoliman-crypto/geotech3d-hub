@@ -119,7 +119,7 @@ import {
   rowsToCsv,
 } from "./utils/exportUtils.js";
 import { useLocalStorage } from "./utils/storage.js";
-import { isSupabaseConfigured, supabase } from "./lib/supabase.js";
+import { createDetachedClient, isSupabaseConfigured, supabase } from "./lib/supabase.js";
 import { useSyncedObject, useSyncedTable } from "./lib/syncedState.js";
 import {
   isoToday,
@@ -1164,7 +1164,7 @@ export default function App() {
     return { ok: true, message: `${targetUser.name}'s role was updated.` };
   }
 
-  function addUser(userDraft) {
+  async function addUser(userDraft) {
     if (!capabilities.canManageUsers) return { ok: false, message: "Only Admin users can add users." };
 
     const trimmedUser = {
@@ -1216,11 +1216,54 @@ export default function App() {
       custom: true,
     };
 
+    // On the shared backend the profile row alone is just a directory entry —
+    // signing in needs a real Supabase Auth user. Create that FIRST, and only
+    // save the profile if it succeeded, so we never leave someone a listed
+    // account they cannot actually log into.
+    let confirmationPending = false;
+    if (backendActive) {
+      if (trimmedUser.password.length < MIN_PASSWORD_LENGTH) {
+        return {
+          ok: false,
+          message: `The password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
+        };
+      }
+      const signUpClient = createDetachedClient();
+      const { data: signUpData, error: signUpError } = await signUpClient.auth.signUp({
+        email: trimmedUser.email,
+        password: trimmedUser.password,
+        options: {
+          data: {
+            name: trimmedUser.name,
+            username: trimmedUser.username,
+            role: trimmedUser.role,
+          },
+        },
+      });
+      if (signUpError) {
+        return {
+          ok: false,
+          message: `Could not create the login: ${signUpError.message}`,
+        };
+      }
+      // No session back means the project requires the address to be confirmed.
+      confirmationPending = !signUpData?.session;
+      // Never keep the plaintext password in a row every signed-in user can read.
+      nextUser.password = "";
+    }
+
     setRemovedUserIds((current) => current.filter((removedId) => removedId !== id));
     setAuthUsers((currentUsers) => [...ensureAuthUsers(currentUsers), nextUser]);
     addAuditEvent("user-management", "User added", `${nextUser.name} was added as ${nextUser.role}.`, {
       relatedUserId: nextUser.id,
     });
+
+    if (confirmationPending) {
+      return {
+        ok: true,
+        message: `${nextUser.name} was added. They must confirm the link sent to ${trimmedUser.email} before their first sign-in.`,
+      };
+    }
     return { ok: true, message: `${nextUser.name} was added and can log in immediately.` };
   }
 

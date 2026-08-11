@@ -17,3 +17,13 @@ export const supabase = isSupabaseConfigured
       },
     })
   : null;
+
+// A throwaway client that never touches the stored session. Used when an admin
+// registers a colleague: signUp() would otherwise replace the admin's own
+// session with the new user's.
+export function createDetachedClient() {
+  if (!isSupabaseConfigured) return null;
+  return createClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+}
