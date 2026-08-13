@@ -20,7 +20,7 @@ const TEAM_LEAD_ROLES = [ROLES.TEAM_LEAD];
 const TEAM_MEMBER_ROLES = [ROLES.EMPLOYEE, ROLES.TEAM_MEMBER];
 // Portfolio accounts see exactly one screen: the portfolio dashboard.
 // PM may change a project's stage; GM is strictly read-only.
-const PORTFOLIO_ROLES = [ROLES.PORTFOLIO_PM, ROLES.PORTFOLIO_GM];
+const PORTFOLIO_ROLES = [ROLES.PORTFOLIO_PM, ROLES.PORTFOLIO_GM, ROLES.PORTFOLIO_ADMIN];
 
 const REQUESTER_ROLES = [
   ROLES.EXTERNAL_MONITOR,
@@ -197,6 +197,15 @@ export function getCapabilities(user) {
     // between pipeline / current / historical. The portfolio GM cannot.
     canEditPortfolioStatus: role === ROLES.PORTFOLIO_PM || canEditOperations,
     isPortfolioAccount: PORTFOLIO_ROLES.includes(role),
+    // Administration registers projects and owns the payment terms.
+    canManagePaymentTerms: role === ROLES.PORTFOLIO_ADMIN || canEditOperations,
+    // The PM confirms a payment milestone was reached, which bills it.
+    canMarkPaymentMilestones: role === ROLES.PORTFOLIO_PM || canEditOperations,
+    // Administration raises the invoice once a milestone is confirmed.
+    canRaiseInvoices: role === ROLES.PORTFOLIO_ADMIN || canEditOperations,
+    // Both the PM and Administration may add a project to the board.
+    canAddPortfolioProject:
+      role === ROLES.PORTFOLIO_PM || role === ROLES.PORTFOLIO_ADMIN || canEditOperations,
     canEditProtectedData: canEditOperations,
     canViewExecutiveDashboard:
       PROJECT_MANAGEMENT_ROLES.includes(role) ||
@@ -224,6 +233,7 @@ export function getCapabilities(user) {
 export function getRoleTone(role) {
   if (role === ROLES.PORTFOLIO_GM) return "executive";
   if (role === ROLES.PORTFOLIO_PM) return "warning";
+  if (role === ROLES.PORTFOLIO_ADMIN) return "regional";
   if (role === ROLES.ADMIN) return "danger";
   if (role === ROLES.CEO || role === ROLES.ROLE_CEO) return "executive";
   if (role === ROLES.GM) return "danger";

@@ -133,6 +133,16 @@ import {
   getDaysUntil,
 } from "./utils/dateUtils.js";
 import { inferProjectGeo } from "./utils/geo.js";
+import {
+  PAYMENT_MILESTONES,
+  clampPercent,
+  getPaymentTerms,
+  getPendingInvoices,
+  getBilledPercent,
+  getTermsTotal,
+  hasPaymentTerms,
+} from "./utils/paymentTerms.js";
+import { downloadInvoiceTemplate } from "./utils/invoiceTemplate.js";
 import geoBrandLogo from "./assets/brand/geotech3d-logo-full.svg";
 
 const navItems = [
@@ -223,6 +233,7 @@ const fullProjectViewRoles = [
   // Portfolio accounts monitor the entire company portfolio.
   ROLES.PORTFOLIO_PM,
   ROLES.PORTFOLIO_GM,
+  ROLES.PORTFOLIO_ADMIN,
 ];
 const taskLevelRoles = [ROLES.EMPLOYEE, ROLES.TEAM_MEMBER];
 const operationalUserRoles = [
@@ -1760,11 +1771,149 @@ export default function App() {
     return { ok: true };
   }
 
+  // The PM confirms a payment stage was reached. That is what tells
+  // Administration an invoice is now due, so it raises a notification for them.
+  function setPaymentMilestoneReached(projectId, milestoneId, reached) {
+    if (!capabilities.canMarkPaymentMilestones) return;
+    const project = projects.find((item) => item.id === projectId);
+    const milestone = PAYMENT_MILESTONES.find((item) => item.id === milestoneId);
+    if (!project || !milestone) return;
+
+    const terms = getPaymentTerms(project);
+    const now = new Date().toISOString();
+
+    setProjects((current) =>
+      current.map((item) => {
+        if (item.id !== projectId) return item;
+        const itemTerms = getPaymentTerms(item);
+        return {
+          ...item,
+          payment: {
+            ...itemTerms,
+            [milestoneId]: {
+              ...itemTerms[milestoneId],
+              reached,
+              reachedAt: reached ? now : "",
+              reachedBy: reached ? currentUser.name : "",
+              // Un-ticking also withdraws an invoice that was never raised.
+              invoicedAt: reached ? itemTerms[milestoneId].invoicedAt : "",
+              invoicedBy: reached ? itemTerms[milestoneId].invoicedBy : "",
+            },
+          },
+        };
+      }),
+    );
+
+    const percent = terms[milestoneId].percent;
+    if (reached) {
+      addNotification({
+        type: "critical",
+        actionRequired: true,
+        targetRoles: [ROLES.PORTFOLIO_ADMIN, ROLES.ADMIN, ROLES.GM],
+        title: `Invoice due — ${milestone.label}`,
+        message: `${project.name} reached ${milestone.label.toLowerCase()}${
+          percent ? ` (${percent}% of the contract)` : ""
+        }. Raise the invoice and send it to ${project.client || "the client"}.`,
+        relatedProjectId: projectId,
+        paymentMilestoneId: milestoneId,
+      });
+    }
+
+    addAuditEvent(
+      "project",
+      reached ? "Payment stage reached" : "Payment stage reverted",
+      reached
+        ? `${project.name}: ${milestone.label} confirmed by ${currentUser.name}${
+            percent ? ` — ${percent}% billable` : ""
+          }.`
+        : `${project.name}: ${milestone.label} was un-marked by ${currentUser.name}.`,
+      { relatedProjectId: projectId },
+    );
+  }
+
+  // Administration downloads the invoice template and the milestone is then
+  // recorded as invoiced, so it leaves their queue.
+  function raiseInvoice(projectId, milestoneId) {
+    if (!capabilities.canRaiseInvoices) return;
+    const project = projects.find((item) => item.id === projectId);
+    const milestone = PAYMENT_MILESTONES.find((item) => item.id === milestoneId);
+    if (!project || !milestone) return;
+
+    const terms = getPaymentTerms(project);
+    downloadInvoiceTemplate({
+      project,
+      milestoneId,
+      percent: terms[milestoneId].percent,
+      preparedBy: currentUser.name,
+    });
+
+    const now = new Date().toISOString();
+    setProjects((current) =>
+      current.map((item) => {
+        if (item.id !== projectId) return item;
+        const itemTerms = getPaymentTerms(item);
+        return {
+          ...item,
+          payment: {
+            ...itemTerms,
+            [milestoneId]: { ...itemTerms[milestoneId], invoicedAt: now, invoicedBy: currentUser.name },
+          },
+        };
+      }),
+    );
+
+    addNotification({
+      type: "info",
+      targetRoles: [ROLES.PORTFOLIO_PM, ROLES.ADMIN, ROLES.GM],
+      title: `Invoice raised — ${milestone.label}`,
+      message: `${currentUser.name} prepared the ${milestone.label.toLowerCase()} invoice for ${project.name}.`,
+      relatedProjectId: projectId,
+    });
+
+    addAuditEvent(
+      "project",
+      "Invoice prepared",
+      `${milestone.label} invoice for ${project.name} was prepared by ${currentUser.name}.`,
+      { relatedProjectId: projectId },
+    );
+  }
+
+  // Administration owns the payment terms and can revise them later.
+  function updatePaymentTerms(projectId, percents) {
+    if (!capabilities.canManagePaymentTerms) return;
+    const project = projects.find((item) => item.id === projectId);
+    if (!project) return;
+
+    setProjects((current) =>
+      current.map((item) => {
+        if (item.id !== projectId) return item;
+        const itemTerms = getPaymentTerms(item);
+        const nextTerms = {};
+        for (const milestone of PAYMENT_MILESTONES) {
+          nextTerms[milestone.id] = {
+            ...itemTerms[milestone.id],
+            percent: clampPercent(percents[milestone.id]),
+          };
+        }
+        return { ...item, payment: nextTerms };
+      }),
+    );
+
+    addAuditEvent(
+      "project",
+      "Payment terms updated",
+      `${project.name}: payment terms set to ${PAYMENT_MILESTONES.map(
+        (m) => `${m.label} ${clampPercent(percents[m.id])}%`,
+      ).join(", ")} by ${currentUser.name}.`,
+      { relatedProjectId: projectId },
+    );
+  }
+
   // Portfolio PM adds a project straight from the status board. The row is
   // written fully-formed (including the fields normalizeProjectsForEmployees
   // fills in) so no client needs to rewrite it afterwards.
   function createPortfolioProject(draft) {
-    if (!capabilities.canEditPortfolioStatus) return null;
+    if (!capabilities.canAddPortfolioProject) return null;
     const name = String(draft?.name || "").trim();
     if (!name) return null;
 
@@ -1804,11 +1953,33 @@ export default function App() {
       cancellationTaskAction: "",
     };
 
+    // Administration registers the payment terms with the project itself.
+    if (capabilities.canManagePaymentTerms && draft.payment) {
+      const terms = {};
+      for (const milestone of PAYMENT_MILESTONES) {
+        terms[milestone.id] = {
+          percent: clampPercent(draft.payment[milestone.id]),
+          reached: false,
+          reachedAt: "",
+          reachedBy: "",
+          invoicedAt: "",
+          invoicedBy: "",
+        };
+      }
+      project.payment = terms;
+    }
+
     setProjects((current) => [project, ...current]);
+
+    const termsNote = hasPaymentTerms(project)
+      ? ` Payment terms: ${PAYMENT_MILESTONES.map(
+          (m) => `${m.label} ${project.payment[m.id].percent}%`,
+        ).join(", ")}.`
+      : "";
     addAuditEvent(
       "project",
       "Project created",
-      `${name} was added to the ${team.label} portfolio as "${status}" by ${currentUser.name}.`,
+      `${name} was added to the ${team.label} portfolio as "${status}" by ${currentUser.name}.${termsNote}`,
       { relatedProjectId: project.id },
     );
     return project;
@@ -2430,6 +2601,12 @@ export default function App() {
             canEditStatus={capabilities.canEditPortfolioStatus}
             onChangeStage={updateProjectStage}
             onCreateProject={createPortfolioProject}
+            canAddProject={capabilities.canAddPortfolioProject}
+            canSetPaymentTerms={capabilities.canManagePaymentTerms}
+            canMarkMilestones={capabilities.canMarkPaymentMilestones}
+            canRaiseInvoices={capabilities.canRaiseInvoices}
+            onToggleMilestone={setPaymentMilestoneReached}
+            onRaiseInvoice={raiseInvoice}
             onPrint={printReport}
           />
         )}
@@ -2873,12 +3050,23 @@ function getDepartmentId(project) {
   return match ? match.id : OTHER_DEPARTMENT.id;
 }
 
-function PortfolioProjectCard({ project, tasks, employees, canEditStatus, onChangeStage }) {
+function PortfolioProjectCard({
+  project,
+  tasks,
+  employees,
+  canEditStatus,
+  onChangeStage,
+  canMarkMilestones,
+  onToggleMilestone,
+}) {
   const manager = employees.find((employee) => employee.id === project.managerId);
   const overdueTasks = tasks.filter(
     (task) => task.projectId === project.id && isOverdue(task),
   ).length;
   const progress = Number.isFinite(project.progress) ? project.progress : 0;
+  const terms = getPaymentTerms(project);
+  const showPayment = hasPaymentTerms(project) || canMarkMilestones;
+  const billed = getBilledPercent(project);
 
   return (
     <article className="pf-card">
@@ -2899,6 +3087,47 @@ function PortfolioProjectCard({ project, tasks, employees, canEditStatus, onChan
         <span>{project.end || "No due date"}</span>
         {overdueTasks ? <Badge tone="danger">{overdueTasks} overdue</Badge> : null}
       </div>
+
+      {showPayment ? (
+        <div className="pf-pay">
+          <div className="pf-pay-head">
+            <span>Payment stages</span>
+            {billed ? <strong>{billed}% billable</strong> : null}
+          </div>
+          {hasPaymentTerms(project) ? (
+            <ul className="pf-pay-list">
+              {PAYMENT_MILESTONES.map((milestone) => {
+                const entry = terms[milestone.id];
+                if (!entry.percent) return null;
+                const invoiced = Boolean(entry.invoicedAt);
+                return (
+                  <li className={`pf-pay-row${entry.reached ? " is-reached" : ""}`} key={milestone.id}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={entry.reached}
+                        disabled={!canMarkMilestones}
+                        onChange={(event) =>
+                          onToggleMilestone(project.id, milestone.id, event.target.checked)
+                        }
+                      />
+                      <span className="pf-pay-name">{milestone.label}</span>
+                      <span className="pf-pay-percent">{entry.percent}%</span>
+                    </label>
+                    {invoiced ? (
+                      <Badge tone="success">Invoiced</Badge>
+                    ) : entry.reached ? (
+                      <Badge tone="warning">Awaiting invoice</Badge>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="pf-pay-empty">No payment terms recorded by Administration yet.</p>
+          )}
+        </div>
+      ) : null}
 
       {canEditStatus ? (
         <label className="pf-card-control">
@@ -2934,17 +3163,26 @@ const blankPortfolioDraft = (stageId, teamLabel) => ({
   stageId: stageId || "current",
   end: "",
   progress: "",
+  payment: { mobilization: "", delivery: "", approval: "" },
 });
 
-function PortfolioNewProjectForm({ stageId, teamLabel, onCancel, onCreate }) {
+function PortfolioNewProjectForm({ stageId, teamLabel, canSetPaymentTerms, onCancel, onCreate }) {
   const [draft, setDraft] = useState(() => blankPortfolioDraft(stageId, teamLabel));
   const [error, setError] = useState("");
   const set = (patch) => setDraft((current) => ({ ...current, ...patch }));
+  const termsTotal = PAYMENT_MILESTONES.reduce(
+    (sum, m) => sum + clampPercent(draft.payment[m.id]),
+    0,
+  );
 
   function submit(event) {
     event.preventDefault();
     if (!draft.name.trim()) {
       setError("Give the project a name.");
+      return;
+    }
+    if (canSetPaymentTerms && termsTotal > 100) {
+      setError("The payment stages add up to more than 100% of the contract.");
       return;
     }
     onCreate(draft);
@@ -3010,6 +3248,33 @@ function PortfolioNewProjectForm({ stageId, teamLabel, onCancel, onCreate }) {
         </label>
       </div>
 
+      {canSetPaymentTerms ? (
+        <fieldset className="pf-terms-fieldset">
+          <legend>Payment terms — share of the contract billed at each stage</legend>
+          <div className="pf-terms-grid">
+            {PAYMENT_MILESTONES.map((milestone) => (
+              <label className="pf-new-field" key={milestone.id}>
+                <span>{milestone.label} %</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={draft.payment[milestone.id]}
+                  placeholder="0"
+                  onChange={(event) =>
+                    set({ payment: { ...draft.payment, [milestone.id]: event.target.value } })
+                  }
+                />
+                <small>{milestone.caption}</small>
+              </label>
+            ))}
+          </div>
+          <p className={`pf-terms-total${termsTotal > 100 ? " is-over" : ""}`}>
+            Total {termsTotal}%{termsTotal > 100 ? " — that is more than the contract" : ""}
+          </p>
+        </fieldset>
+      ) : null}
+
       {error ? <p className="pf-new-error">{error}</p> : null}
 
       <div className="pf-new-actions">
@@ -3025,6 +3290,58 @@ function PortfolioNewProjectForm({ stageId, teamLabel, onCancel, onCreate }) {
   );
 }
 
+// Administration's working queue: every stage the PM has confirmed that still
+// needs an invoice raised.
+function PortfolioInvoiceQueue({ projects, onRaiseInvoice }) {
+  const pending = getPendingInvoices(projects);
+
+  return (
+    <section className="pf-invoices">
+      <header className="pf-invoices-head">
+        <span className="pf-invoices-title">
+          <FileText size={17} aria-hidden="true" />
+          Invoices to raise
+        </span>
+        <Badge tone={pending.length ? "warning" : "success"}>{pending.length}</Badge>
+      </header>
+
+      {pending.length ? (
+        <ul className="pf-invoices-list">
+          {pending.map(({ project, milestone, entry }) => (
+            <li className="pf-invoice-row" key={`${project.id}-${milestone.id}`}>
+              <div>
+                <strong>{project.name}</strong>
+                <small>
+                  {milestone.label} · {entry.percent}% ·{" "}
+                  {project.client || "client not recorded"}
+                </small>
+                {entry.reachedBy ? (
+                  <small>
+                    Confirmed by {entry.reachedBy}
+                    {entry.reachedAt ? ` on ${String(entry.reachedAt).slice(0, 10)}` : ""}
+                  </small>
+                ) : null}
+              </div>
+              <button
+                className="primary-button compact-button"
+                type="button"
+                onClick={() => onRaiseInvoice(project.id, milestone.id)}
+              >
+                <Download size={14} aria-hidden="true" />
+                Invoice template
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="pf-invoices-empty">
+          Nothing waiting. A row appears here the moment the PM confirms a payment stage.
+        </p>
+      )}
+    </section>
+  );
+}
+
 function PortfolioDashboard({
   projects,
   tasks,
@@ -3033,6 +3350,12 @@ function PortfolioDashboard({
   canEditStatus,
   onChangeStage,
   onCreateProject,
+  canAddProject,
+  canSetPaymentTerms,
+  canMarkMilestones,
+  canRaiseInvoices,
+  onToggleMilestone,
+  onRaiseInvoice,
   onPrint,
 }) {
   const [activeStage, setActiveStage] = useState("current");
@@ -3075,7 +3398,7 @@ function PortfolioDashboard({
         </div>
         <div className="pf-board-side">
           <Badge tone={getRoleTone(currentUser.role)}>{currentUser.badge || currentUser.role}</Badge>
-          {canEditStatus ? (
+          {canAddProject ? (
             <button
               className="pf-add-button"
               type="button"
@@ -3113,6 +3436,10 @@ function PortfolioDashboard({
         </nav>
 
         <div className="pf-main">
+          {canRaiseInvoices ? (
+            <PortfolioInvoiceQueue projects={projects} onRaiseInvoice={onRaiseInvoice} />
+          ) : null}
+
           <div className="pf-tabs" role="tablist" aria-label="Project stages">
             {PORTFOLIO_STAGES.map((item) => {
               const TabIcon = item.icon;
@@ -3135,10 +3462,11 @@ function PortfolioDashboard({
           </div>
 
           <section className="pf-panel" role="tabpanel" aria-label={stage.label}>
-            {canEditStatus && addingProject ? (
+            {canAddProject && addingProject ? (
               <PortfolioNewProjectForm
                 stageId={stage.id}
                 teamLabel={dept.teamLabel}
+                canSetPaymentTerms={canSetPaymentTerms}
                 onCancel={() => setAddingProject(false)}
                 onCreate={(draft) => {
                   const created = onCreateProject(draft);
@@ -3166,6 +3494,8 @@ function PortfolioDashboard({
                     employees={employees}
                     canEditStatus={canEditStatus}
                     onChangeStage={onChangeStage}
+                    canMarkMilestones={canMarkMilestones}
+                    onToggleMilestone={onToggleMilestone}
                   />
                 ))}
               </div>

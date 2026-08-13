@@ -1838,6 +1838,199 @@ a {
   margin-top: 0;
 }
 
+/* Payment terms on the add-project form (Administration only) */
+.pf-terms-fieldset {
+  margin: 16px 0 0;
+  padding: 14px 16px;
+  border: 1px solid rgba(160, 132, 13, 0.35);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.pf-terms-fieldset legend {
+  padding: 0 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.pf-terms-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px 14px;
+}
+
+.pf-terms-grid small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.pf-terms-total {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pf-terms-total.is-over {
+  color: var(--red);
+}
+
+/* Payment stages on a project card */
+.pf-pay {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.pf-pay-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.pf-pay-head strong {
+  color: var(--green);
+  font-size: 12px;
+}
+
+.pf-pay-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pf-pay-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.pf-pay-row.is-reached {
+  border-color: rgba(15, 143, 114, 0.35);
+  background: rgba(15, 143, 114, 0.07);
+}
+
+.pf-pay-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.pf-pay-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: var(--green);
+}
+
+.pf-pay-row input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+}
+
+.pf-pay-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pf-pay-percent {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pf-pay-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Administration's invoice queue */
+.pf-invoices {
+  padding: 16px 18px;
+  margin: 18px 24px 0;
+  border: 1px solid rgba(160, 132, 13, 0.4);
+  border-radius: 12px;
+  background: rgba(160, 132, 13, 0.06);
+}
+
+.pf-invoices-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.pf-invoices-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.pf-invoices-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pf-invoice-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.pf-invoice-row > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pf-invoice-row small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.pf-invoices-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@media (max-width: 860px) {
+  .pf-invoices {
+    margin-left: 16px;
+    margin-right: 16px;
+  }
+}
+
 /* Department rail (left) + stage tabs and cards (right) */
 .pf-body {
   display: grid;

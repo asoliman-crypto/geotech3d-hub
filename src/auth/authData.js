@@ -17,6 +17,9 @@ export const ROLES = {
   // PM can move a project between pipeline / current / historical, GM watches.
   PORTFOLIO_PM: "portfolio_pm",
   PORTFOLIO_GM: "portfolio_gm",
+  // Administration: registers projects together with their payment terms and
+  // raises the invoice when the PM marks a payment milestone as reached.
+  PORTFOLIO_ADMIN: "portfolio_admin",
 };
 
 export const ROLE_OPTIONS = [
@@ -34,6 +37,7 @@ export const ROLE_OPTIONS = [
   ROLES.ROLE_CEO,
   ROLES.PORTFOLIO_PM,
   ROLES.PORTFOLIO_GM,
+  ROLES.PORTFOLIO_ADMIN,
 ];
 
 export const APPROVAL_OWNER_ID = "abdelrahman-soliman";
@@ -227,6 +231,22 @@ const portfolioUsers = [
     title: "General Manager - Portfolio Monitoring",
     actualRole: "Portfolio monitoring",
     accessType: "Portfolio dashboard - read only",
+  },
+  {
+    id: "portfolio-admin",
+    employeeId: null,
+    name: "Administration (Portfolio)",
+    username: "admin.portfolio",
+    // A real domain: Supabase rejects .local addresses when the app registers
+    // an account, and this one was created through the app itself.
+    email: "admin.portfolio@geotech3d.com",
+    password: "Geo@123456",
+    role: ROLES.PORTFOLIO_ADMIN,
+    badge: "ADMINISTRATION",
+    department: "Administration",
+    title: "Administration - Contracts & Invoicing",
+    actualRole: "Payment terms and invoicing",
+    accessType: "Portfolio dashboard - payment terms and invoices",
   },
 ];
 
