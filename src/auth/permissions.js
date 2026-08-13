@@ -201,6 +201,8 @@ export function getCapabilities(user) {
     canManagePaymentTerms: role === ROLES.PORTFOLIO_ADMIN || canEditOperations,
     // The PM confirms a payment milestone was reached, which bills it.
     canMarkPaymentMilestones: role === ROLES.PORTFOLIO_PM || canEditOperations,
+    // Administration keeps the project paperwork (proposals, quotations).
+    canManageProjectFiles: role === ROLES.PORTFOLIO_ADMIN || canEditOperations,
     // Administration raises the invoice once a milestone is confirmed.
     canRaiseInvoices: role === ROLES.PORTFOLIO_ADMIN || canEditOperations,
     // Both the PM and Administration may add a project to the board.

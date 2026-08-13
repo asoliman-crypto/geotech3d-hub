@@ -3192,6 +3192,200 @@ a {
   max-width: 440px;
 }
 
+/* Project workspace modal */
+.ws-modal {
+  max-width: 640px;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.ws-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.ws-summary > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ws-summary span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ws-summary strong {
+  font-size: 13px;
+}
+
+.ws-terms {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.ws-term {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ws-files {
+  margin-top: 18px;
+}
+
+.ws-files-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.ws-files-head > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.ws-drop {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 20px 16px;
+  border: 2px dashed rgba(160, 132, 13, 0.45);
+  border-radius: 12px;
+  background: rgba(160, 132, 13, 0.06);
+  text-align: center;
+  cursor: pointer;
+}
+
+.ws-drop:hover {
+  background: rgba(160, 132, 13, 0.12);
+}
+
+.ws-drop.is-busy {
+  opacity: 0.65;
+  cursor: progress;
+}
+
+.ws-drop input[type="file"] {
+  display: none;
+}
+
+.ws-drop > span {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ws-drop small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.ws-file-list {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ws-file {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.ws-file > div:first-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ws-file strong {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.ws-file small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.ws-file-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ws-file-actions .mini-action {
+  margin-top: 0;
+}
+
+.ws-empty {
+  margin: 12px 0 0;
+  padding: 18px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* "Workspace" button on a project card */
+.pf-open-ws {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  align-self: start;
+  padding: 6px 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--ink);
+  background: #f8fafc;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pf-open-ws:hover {
+  background: #eef2f6;
+}
+
+.pf-ws-count {
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--gold, #a0840d);
+  color: #ffffff;
+  font-size: 11px;
+}
+
 .change-password-intro {
   margin: 0 0 4px;
   color: var(--muted);

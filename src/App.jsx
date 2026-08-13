@@ -23,6 +23,7 @@ import {
   Link2,
   ListChecks,
   ListOrdered,
+  Paperclip,
   LogOut,
   MessageSquare,
   Minus,
@@ -34,6 +35,7 @@ import {
   Search,
   Send,
   Settings,
+  Upload,
   ShieldCheck,
   Sparkles,
   Sun,
@@ -143,6 +145,14 @@ import {
   hasPaymentTerms,
 } from "./utils/paymentTerms.js";
 import { downloadInvoiceTemplate } from "./utils/invoiceTemplate.js";
+import {
+  MAX_FILE_BYTES,
+  formatFileSize,
+  getProjectFiles,
+  openProjectFile,
+  removeProjectFile,
+  uploadProjectFile,
+} from "./lib/projectFiles.js";
 import geoBrandLogo from "./assets/brand/geotech3d-logo-full.svg";
 
 const navItems = [
@@ -581,6 +591,7 @@ export default function App() {
   const [taskRequestMessage, setTaskRequestMessage] = useState("");
   const [cancelProjectDraft, setCancelProjectDraft] = useState(null);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [workspaceProjectId, setWorkspaceProjectId] = useState("");
   const [loader, setLoader] = useState({ active: false, label: "Loading workspace" });
 
   const normalizedProjects = useMemo(() => normalizeProjectsForEmployees(projects), [projects]);
@@ -1771,6 +1782,56 @@ export default function App() {
     return { ok: true };
   }
 
+  // Project file workspace: bytes go to storage, the listing lives on the
+  // project row so everyone sees the same documents.
+  async function attachProjectFile(projectId, file) {
+    if (!capabilities.canManageProjectFiles) {
+      return { ok: false, message: "You do not have permission to attach files." };
+    }
+    const result = await uploadProjectFile(projectId, file, currentUser.name);
+    if (!result.ok) return result;
+
+    setProjects((current) =>
+      current.map((item) =>
+        item.id === projectId
+          ? { ...item, files: [result.file, ...getProjectFiles(item)] }
+          : item,
+      ),
+    );
+    const project = projects.find((item) => item.id === projectId);
+    addAuditEvent(
+      "project",
+      "File attached",
+      `${currentUser.name} attached "${file.name}" to ${project?.name || projectId}.`,
+      { relatedProjectId: projectId },
+    );
+    return { ok: true, message: `"${file.name}" uploaded.` };
+  }
+
+  async function detachProjectFile(projectId, file) {
+    if (!capabilities.canManageProjectFiles) {
+      return { ok: false, message: "You do not have permission to remove files." };
+    }
+    const result = await removeProjectFile(file);
+    if (!result.ok) return result;
+
+    setProjects((current) =>
+      current.map((item) =>
+        item.id === projectId
+          ? { ...item, files: getProjectFiles(item).filter((entry) => entry.path !== file.path) }
+          : item,
+      ),
+    );
+    const project = projects.find((item) => item.id === projectId);
+    addAuditEvent(
+      "project",
+      "File removed",
+      `${currentUser.name} removed "${file.name}" from ${project?.name || projectId}.`,
+      { relatedProjectId: projectId },
+    );
+    return { ok: true, message: `"${file.name}" removed.` };
+  }
+
   // The PM confirms a payment stage was reached. That is what tells
   // Administration an invoice is now due, so it raises a notification for them.
   function setPaymentMilestoneReached(projectId, milestoneId, reached) {
@@ -2607,6 +2668,7 @@ export default function App() {
             canRaiseInvoices={capabilities.canRaiseInvoices}
             onToggleMilestone={setPaymentMilestoneReached}
             onRaiseInvoice={raiseInvoice}
+            onOpenWorkspace={capabilities.isPortfolioAccount || capabilities.canManageProjects ? setWorkspaceProjectId : undefined}
             onPrint={printReport}
           />
         )}
@@ -2832,6 +2894,16 @@ export default function App() {
 
         {activeView === "settings" && capabilities.canManageSettings && <SettingsPage />}
       </main>
+      {workspaceProjectId ? (
+        <ProjectWorkspaceModal
+          project={roleScopedProjects.find((item) => item.id === workspaceProjectId)}
+          canManageFiles={capabilities.canManageProjectFiles}
+          onAttach={attachProjectFile}
+          onDetach={detachProjectFile}
+          onClose={() => setWorkspaceProjectId("")}
+        />
+      ) : null}
+
       {changingPassword ? (
         <ChangePasswordModal
           currentUser={currentUser}
@@ -3058,6 +3130,7 @@ function PortfolioProjectCard({
   onChangeStage,
   canMarkMilestones,
   onToggleMilestone,
+  onOpenWorkspace,
 }) {
   const manager = employees.find((employee) => employee.id === project.managerId);
   const overdueTasks = tasks.filter(
@@ -3127,6 +3200,16 @@ function PortfolioProjectCard({
             <p className="pf-pay-empty">No payment terms recorded by Administration yet.</p>
           )}
         </div>
+      ) : null}
+
+      {onOpenWorkspace ? (
+        <button className="pf-open-ws" type="button" onClick={() => onOpenWorkspace(project.id)}>
+          <Paperclip size={14} aria-hidden="true" />
+          Workspace
+          {getProjectFiles(project).length ? (
+            <span className="pf-ws-count">{getProjectFiles(project).length}</span>
+          ) : null}
+        </button>
       ) : null}
 
       {canEditStatus ? (
@@ -3356,6 +3439,7 @@ function PortfolioDashboard({
   canRaiseInvoices,
   onToggleMilestone,
   onRaiseInvoice,
+  onOpenWorkspace,
   onPrint,
 }) {
   const [activeStage, setActiveStage] = useState("current");
@@ -3496,6 +3580,7 @@ function PortfolioDashboard({
                     onChangeStage={onChangeStage}
                     canMarkMilestones={canMarkMilestones}
                     onToggleMilestone={onToggleMilestone}
+                    onOpenWorkspace={onOpenWorkspace}
                   />
                 ))}
               </div>
@@ -4751,6 +4836,182 @@ function ReviewQueuePage({ tasks, projects, employees, currentUser, onReviewTask
         <EmptyState title="Review queue clear" text="Submitted tasks waiting for Team Lead QC will appear here." />
       )}
     </section>
+  );
+}
+
+// The per-project document workspace Administration opens from the board.
+function ProjectWorkspaceModal({ project, canManageFiles, onAttach, onDetach, onClose }) {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState(null);
+  if (!project) return null;
+
+  const files = getProjectFiles(project);
+  const terms = getPaymentTerms(project);
+
+  async function handleFiles(fileList) {
+    const chosen = Array.from(fileList || []);
+    if (!chosen.length) return;
+    setBusy(true);
+    setMessage(null);
+    for (const file of chosen) {
+      const result = await onAttach(project.id, file);
+      if (!result.ok) {
+        setMessage({ tone: "error", text: result.message });
+        setBusy(false);
+        return;
+      }
+    }
+    setMessage({
+      tone: "success",
+      text: chosen.length === 1 ? `"${chosen[0].name}" uploaded.` : `${chosen.length} files uploaded.`,
+    });
+    setBusy(false);
+  }
+
+  async function handleRemove(file) {
+    if (!window.confirm(`Remove "${file.name}" from this project?`)) return;
+    setBusy(true);
+    const result = await onDetach(project.id, file);
+    setMessage(result.ok ? { tone: "success", text: result.message } : { tone: "error", text: result.message });
+    setBusy(false);
+  }
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <section className="confirm-modal panel ws-modal" aria-label="Project workspace">
+        <div className="modal-title-row">
+          <div>
+            <span className="eyebrow">{project.id} · Project workspace</span>
+            <h3>{project.name}</h3>
+          </div>
+          <button className="icon-button" type="button" aria-label="Close workspace" onClick={onClose}>
+            <X size={18} aria-hidden="true" />
+          </button>
+        </div>
+
+        <div className="ws-summary">
+          <div>
+            <span>Client</span>
+            <strong>{project.client || "Not recorded"}</strong>
+          </div>
+          <div>
+            <span>Team</span>
+            <strong>{project.teamLabel || "Unassigned"}</strong>
+          </div>
+          <div>
+            <span>Stage</span>
+            <strong>{project.status}</strong>
+          </div>
+          <div>
+            <span>Billable so far</span>
+            <strong>{getBilledPercent(project)}%</strong>
+          </div>
+        </div>
+
+        {hasPaymentTerms(project) ? (
+          <div className="ws-terms">
+            {PAYMENT_MILESTONES.filter((m) => terms[m.id].percent > 0).map((milestone) => {
+              const entry = terms[milestone.id];
+              return (
+                <span className="ws-term" key={milestone.id}>
+                  {milestone.label} {entry.percent}%
+                  {entry.invoicedAt ? (
+                    <Badge tone="success">Invoiced</Badge>
+                  ) : entry.reached ? (
+                    <Badge tone="warning">Awaiting invoice</Badge>
+                  ) : (
+                    <Badge tone="neutral">Not reached</Badge>
+                  )}
+                </span>
+              );
+            })}
+          </div>
+        ) : null}
+
+        <div className="ws-files">
+          <header className="ws-files-head">
+            <span>
+              <Paperclip size={16} aria-hidden="true" />
+              Documents
+            </span>
+            <Badge tone="neutral">{files.length}</Badge>
+          </header>
+
+          {canManageFiles ? (
+            <label className={`ws-drop${busy ? " is-busy" : ""}`}>
+              <input
+                type="file"
+                multiple
+                disabled={busy}
+                onChange={(event) => {
+                  handleFiles(event.target.files);
+                  event.target.value = "";
+                }}
+              />
+              <Upload size={18} aria-hidden="true" />
+              <span>
+                {busy ? "Uploading…" : "Upload a financial proposal, quotation or any project document"}
+              </span>
+              <small>Up to {formatFileSize(MAX_FILE_BYTES)} per file</small>
+            </label>
+          ) : null}
+
+          {message ? (
+            <div
+              className={`management-message ${
+                message.tone === "error" ? "management-message-error" : "success-notice"
+              }`}
+            >
+              {message.text}
+            </div>
+          ) : null}
+
+          {files.length ? (
+            <ul className="ws-file-list">
+              {files.map((file) => (
+                <li className="ws-file" key={file.path}>
+                  <div>
+                    <strong>{file.name}</strong>
+                    <small>
+                      {formatFileSize(file.size)}
+                      {file.uploadedBy ? ` · ${file.uploadedBy}` : ""}
+                      {file.uploadedAt ? ` · ${String(file.uploadedAt).slice(0, 10)}` : ""}
+                    </small>
+                  </div>
+                  <div className="ws-file-actions">
+                    <button className="mini-action" type="button" onClick={() => openProjectFile(file)}>
+                      <Download size={14} aria-hidden="true" />
+                      Open
+                    </button>
+                    {canManageFiles ? (
+                      <button
+                        className="danger-button compact-button"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => handleRemove(file)}
+                      >
+                        <Trash2 size={14} aria-hidden="true" />
+                      </button>
+                    ) : null}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="ws-empty">
+              No documents yet.
+              {canManageFiles ? " Upload the financial proposal to get started." : ""}
+            </p>
+          )}
+        </div>
+
+        <div className="modal-actions">
+          <button className="secondary-button" type="button" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 
