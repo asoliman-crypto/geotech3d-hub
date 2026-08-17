@@ -704,6 +704,25 @@ export default function App() {
     () => new Set(filteredProjects.map((project) => project.id)),
     [filteredProjects],
   );
+  // The Projects page is a "what are we working on" list: finished work is
+  // noise there, so it is hidden unless the status filter asks for it by name.
+  // Oldest first, because the ones running longest need attention soonest.
+  const projectsPageProjects = useMemo(() => {
+    const showingCompleted = ["Completed", "Cancelled"].includes(projectFilters.status);
+    const visible = showingCompleted
+      ? filteredProjects
+      : filteredProjects.filter((project) => project.status !== "Completed");
+    const startedAt = (project) => project.start || project.end || "";
+    return [...visible].sort((a, b) => {
+      const left = startedAt(a);
+      const right = startedAt(b);
+      // Projects with no dates sit at the end rather than pretending to be oldest.
+      if (!left && !right) return String(a.id).localeCompare(String(b.id));
+      if (!left) return 1;
+      if (!right) return -1;
+      return left.localeCompare(right);
+    });
+  }, [filteredProjects, projectFilters.status]);
   const filteredTasks = useMemo(
     () => roleScopedTasks.filter((task) => filteredProjectIds.has(task.projectId)),
     [roleScopedTasks, filteredProjectIds],
@@ -2728,8 +2747,11 @@ export default function App() {
 
         {activeView === "projects" && canAccessView(currentUser, "projects") && (
           <ProjectsPage
-            projects={filteredProjects}
+            projects={projectsPageProjects}
             allProjectCount={activeRoleScopedProjects.length}
+            completedCount={
+              activeRoleScopedProjects.filter((project) => project.status === "Completed").length
+            }
             archivedProjectCount={cancelledRoleScopedProjects.length}
             employees={workspacePeople}
             tasks={filteredTasks}
@@ -4145,16 +4167,25 @@ function Dashboard({
   );
 }
 
-function ProjectsPage({ projects, allProjectCount, archivedProjectCount, employees, tasks, onOpenProject, onExport }) {
+function ProjectsPage({
+  projects,
+  allProjectCount,
+  completedCount = 0,
+  archivedProjectCount,
+  employees,
+  tasks,
+  onOpenProject,
+  onExport,
+}) {
   return (
     <section className="panel">
       <div className="panel-head-row">
         <SectionTitle
           icon={FolderKanban}
           title="Projects"
-          helper={`Showing ${projects.length} active project${projects.length === 1 ? "" : "s"}${
-            allProjectCount !== projects.length ? ` from ${allProjectCount} active records` : ""
-          }.`}
+          helper={`Showing ${projects.length} ongoing project${
+            projects.length === 1 ? "" : "s"
+          }, oldest first.`}
         />
         <ExportBar
           onExportCsv={
@@ -4166,6 +4197,13 @@ function ProjectsPage({ projects, allProjectCount, archivedProjectCount, employe
           onPrint={printReport}
         />
       </div>
+      {completedCount ? (
+        <div className="archive-inline-note">
+          <CheckCircle2 size={16} aria-hidden="true" />
+          {completedCount} completed project{completedCount === 1 ? "" : "s"} hidden — set Status to
+          &ldquo;Completed&rdquo; in the sidebar filters to see them.
+        </div>
+      ) : null}
       {archivedProjectCount ? (
         <div className="archive-inline-note">
           <Archive size={16} aria-hidden="true" />
