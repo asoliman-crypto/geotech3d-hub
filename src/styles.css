@@ -2361,27 +2361,6 @@ a {
   background: #f1f5f9;
 }
 
-.pd-map-canvas {
-  max-height: 320px;
-}
-
-.pd-map-meta {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 12px;
-}
-
-.pd-map-meta span {
-  padding: 4px 10px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: #f8fafc;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
-}
-
 /* Project Detail — every project as a distinctive collapsible accordion */
 .pd-list-intro {
   padding: 2px 2px 0;

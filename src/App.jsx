@@ -4637,16 +4637,6 @@ function ActivityTimeline({ events, compact = false }) {
   );
 }
 
-function ProjectActivityTimeline({ project, tasks, comments }) {
-  const events = buildActivityTimeline([project], tasks, comments, []);
-  return (
-    <section className="panel">
-      <SectionTitle icon={Activity} title="Project Activity Timeline" helper="Project updates, approvals, and comments." />
-      <ActivityTimeline events={events} />
-    </section>
-  );
-}
-
 function ProjectComments({ project, tasks, comments, currentUser, canComment, onAddComment }) {
   const [commentBody, setCommentBody] = useState("");
   const [taskId, setTaskId] = useState("");
@@ -5545,49 +5535,6 @@ function ProjectDetailAccordionItem({
   );
 }
 
-// Where a single project sits, drawn on the same regional map the Map View
-// uses so the two always agree.
-function ProjectLocationMap({ project }) {
-  const geo = inferProjectGeo(project);
-
-  return (
-    <section className="panel pd-map-panel">
-      <SectionTitle
-        icon={Link2}
-        title="Location"
-        helper={geo.located ? `${geo.city} · ${geo.region}` : "No location matched for this project yet."}
-      />
-      <div className="geo-map-canvas pd-map-canvas" aria-label={`Location of ${project.name}`}>
-        <svg viewBox="0 0 100 70" role="img" aria-label={`Map position of ${project.name}`}>
-          <defs>
-            <pattern id="pd-geo-grid" width="8" height="8" patternUnits="userSpaceOnUse">
-              <path d="M 8 0 L 0 0 0 8" fill="none" stroke="rgba(160,132,13,.16)" strokeWidth=".35" />
-            </pattern>
-          </defs>
-          <rect width="100" height="70" rx="4" fill="url(#pd-geo-grid)" />
-          <path d="M8 53 C20 41 27 46 38 34 C52 19 63 22 74 12 C84 3 93 8 96 18" fill="none" stroke="rgba(160,132,13,.42)" strokeWidth="1.1" />
-          <path d="M4 31 C17 23 29 25 41 18 C54 10 67 12 86 5" fill="none" stroke="rgba(98,99,102,.22)" strokeWidth=".8" />
-          <path d="M16 64 C28 56 42 59 53 48 C64 37 75 42 92 30" fill="none" stroke="rgba(98,99,102,.2)" strokeWidth=".8" />
-          {geo.located ? (
-            <g>
-              <circle cx={geo.x} cy={geo.y} r="5.5" className={`map-pulse map-${String(project.status || "active").toLowerCase().replaceAll(" ", "-")}`} />
-              <circle cx={geo.x} cy={geo.y} r="2.4" className="map-pin-core" />
-              <text x={geo.x + 4} y={geo.y - 4}>{project.id}</text>
-            </g>
-          ) : null}
-        </svg>
-      </div>
-      {geo.located ? (
-        <div className="pd-map-meta">
-          <span>{geo.city}</span>
-          <span>{geo.region}</span>
-          <span>{geo.coordinates}</span>
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
 function ProjectDetailList({
   projects,
   employees,
@@ -5660,7 +5607,6 @@ function ProjectDetailList({
           limitedView={limitedView}
           onOpenGanttReport={onOpenGanttReport}
           onCreatePlanTask={(parentId) => onCreatePlanTask(focused.id, parentId)}
-          locationMap={<ProjectLocationMap project={focused} />}
         />
       </div>
     );
@@ -5722,7 +5668,6 @@ function ProjectDetail({
   limitedView,
   onOpenGanttReport,
   embedded = false,
-  locationMap = null,
   onCreatePlanTask = () => {},
 }) {
   // Plan is the default view: the schedule is what a project manager opens for.
@@ -5854,8 +5799,6 @@ function ProjectDetail({
         )}
       </div>
 
-      {locationMap}
-
       <section className="panel">
         <SectionTitle icon={Users} title="Team Members" helper={`${projectTeam.length} assigned people`} />
         <div className="team-grid">
@@ -5936,8 +5879,6 @@ function ProjectDetail({
         />
         )}
       </section>
-
-      <ProjectActivityTimeline project={project} tasks={tasks} comments={comments} />
 
       <ProjectComments
         project={project}

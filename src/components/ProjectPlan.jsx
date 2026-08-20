@@ -11,7 +11,13 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { Badge } from "./ui.jsx";
-import { buildProjectPlan, getParentId, getPredecessorIds } from "../utils/projectPlan.js";
+import {
+  buildProjectPlan,
+  getParentId,
+  getPredecessorIds,
+  parsePlanDate,
+  workingDaysBetween,
+} from "../utils/projectPlan.js";
 
 // ---------------------------------------------------------------------------
 // The Plan tab: an MS-Project-style work breakdown for one project.
@@ -105,6 +111,25 @@ export function ProjectPlan({
     const b = Number.isFinite(Number(swapWith.task.order)) ? Number(swapWith.task.order) : index + direction;
     onUpdateTask(row.task.id, { order: b });
     onUpdateTask(swapWith.task.id, { order: a });
+  }
+
+  // Setting a finish date is really setting how long the task takes, measured
+  // from the date the schedule gives it.
+  function setFinish(row, value) {
+    if (!value) return;
+    const start = parsePlanDate(row.start);
+    const finish = parsePlanDate(value);
+    if (!start || !finish) return;
+    if (finish < start) {
+      // A finish before the start would be meaningless — keep it at one day.
+      onUpdateTask(row.task.id, { duration: 1, end: row.start, milestone: false });
+      return;
+    }
+    onUpdateTask(row.task.id, {
+      duration: workingDaysBetween(start, finish),
+      end: value,
+      milestone: false,
+    });
   }
 
   function linkPredecessor(row, predecessorId) {
@@ -265,7 +290,20 @@ export function ProjectPlan({
                   </td>
 
                   <td className="plan-col-date">
-                    <span className="plan-readonly">{row.finish}</span>
+                    {row.isSummary ? (
+                      <span className="plan-readonly" title="Spans its sub-tasks">{row.finish}</span>
+                    ) : canEdit ? (
+                      // Typing a finish date sets the duration; the schedule
+                      // still owns the start, so the two never disagree.
+                      <input
+                        type="date"
+                        value={row.finish}
+                        min={row.start}
+                        onChange={(event) => setFinish(row, event.target.value)}
+                      />
+                    ) : (
+                      <span className="plan-readonly">{row.finish}</span>
+                    )}
                   </td>
 
                   <td className="plan-col-pred">
