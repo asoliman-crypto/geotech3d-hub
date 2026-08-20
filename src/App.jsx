@@ -80,6 +80,7 @@ import { CompanyReport } from "./components/CompanyReport.jsx";
 import { ProjectGanttReport } from "./components/ProjectGanttReport.jsx";
 import { ProjectCard } from "./components/ProjectCard.jsx";
 import { TaskGroupsByProject, TaskTable } from "./components/TaskTable.jsx";
+import { ProjectPlan } from "./components/ProjectPlan.jsx";
 import {
   Badge,
   EmptyState,
@@ -1802,6 +1803,61 @@ export default function App() {
     return { ok: true };
   }
 
+  // Adds a row to a project's plan. Deliberately minimal: the Plan tab is for
+  // laying out the schedule, so it creates the task and lets the planner fill
+  // in duration, dependencies and owner in place.
+  function createPlanTask(projectId, parentId = null) {
+    if (!capabilities.canManageTasks) return null;
+    const project = enrichedProjects.find((item) => item.id === projectId);
+    if (!project) return null;
+
+    const siblings = normalizedTasks.filter(
+      (task) => task.projectId === projectId && String(task.parentId || "") === String(parentId || ""),
+    );
+    const nextTask = {
+      id: Math.max(0, ...normalizedTasks.map((task) => Number(task.id) || 0)) + 1,
+      projectId,
+      parentId: parentId ? String(parentId) : null,
+      order: siblings.length + 1,
+      title: "New task",
+      assigneeId: project.managerId || "",
+      status: "To Do",
+      priority: "Medium",
+      progress: 0,
+      duration: 1,
+      dependencies: [],
+      start: isoToday,
+      end: isoToday,
+      dataRefType: "Path",
+      dataRefValue: "",
+      notes: "",
+      milestone: false,
+      createdBy: {
+        id: currentUser.id,
+        name: currentUser.name,
+        role: currentUser.role,
+        location: currentUser.location || currentUser.countryRegion || "",
+      },
+      createdAt: new Date().toISOString(),
+      qcStatus: "Not Submitted",
+      submittedForReviewBy: "",
+      submittedForReviewByName: "",
+      submittedForReviewAt: "",
+      reviewedBy: "",
+      reviewedByName: "",
+      reviewedAt: "",
+      reviewComment: "",
+      revisionCount: 0,
+      returnedToAssigneeAt: "",
+    };
+
+    setTasks((current) => [...current, nextTask]);
+    addAuditEvent("task", "Task added to plan", `${nextTask.title} was added to ${project.name}.`, {
+      relatedProjectId: projectId,
+    });
+    return nextTask;
+  }
+
   // Project file workspace: bytes go to storage, the listing lives on the
   // project row so everyone sees the same documents.
   async function attachProjectFile(projectId, file) {
@@ -2780,6 +2836,7 @@ export default function App() {
             currentUser={currentUser}
             selectedProjectId={selectedProjectId}
             onSelectProject={setSelectedProjectId}
+            onCreatePlanTask={createPlanTask}
             onUpdateTask={updateTask}
             onRequestCancelProject={openCancelProject}
             onDeleteProject={deleteProject}
@@ -5418,6 +5475,7 @@ function ProjectDetailAccordionItem({
   onSubmitTaskReview,
   isTaskLocked,
   onOpenGanttReport,
+  onCreatePlanTask,
 }) {
   const [open, setOpen] = useState(Boolean(defaultOpen));
   const canEditTasks =
@@ -5479,6 +5537,7 @@ function ProjectDetailAccordionItem({
             isTaskLocked={isTaskLocked}
             limitedView={limitedView}
             onOpenGanttReport={onOpenGanttReport}
+            onCreatePlanTask={(parentId) => onCreatePlanTask(project.id, parentId)}
           />
         </div>
       ) : null}
@@ -5538,6 +5597,7 @@ function ProjectDetailList({
   currentUser,
   selectedProjectId,
   onSelectProject,
+  onCreatePlanTask,
   onUpdateTask,
   onRequestCancelProject,
   onDeleteProject,
@@ -5599,6 +5659,7 @@ function ProjectDetailList({
           isTaskLocked={isTaskLocked}
           limitedView={limitedView}
           onOpenGanttReport={onOpenGanttReport}
+          onCreatePlanTask={(parentId) => onCreatePlanTask(focused.id, parentId)}
           locationMap={<ProjectLocationMap project={focused} />}
         />
       </div>
@@ -5631,6 +5692,7 @@ function ProjectDetailList({
           onSubmitTaskReview={onSubmitTaskReview}
           isTaskLocked={isTaskLocked}
           onOpenGanttReport={onOpenGanttReport}
+          onCreatePlanTask={onCreatePlanTask}
         />
       ))}
     </div>
@@ -5661,7 +5723,10 @@ function ProjectDetail({
   onOpenGanttReport,
   embedded = false,
   locationMap = null,
+  onCreatePlanTask = () => {},
 }) {
+  // Plan is the default view: the schedule is what a project manager opens for.
+  const [planTab, setPlanTab] = useState("plan");
   if (!project) {
     return <EmptyState title="No project selected" text="Create or select a project to view details." />;
   }
@@ -5810,13 +5875,50 @@ function ProjectDetail({
       <section className="panel">
         <SectionTitle
           icon={ListChecks}
-          title={limitedView ? "Your Project Tasks" : "Project Task Table"}
+          title={limitedView ? "Your Project Tasks" : "Project Tasks"}
           helper={
-            canEditTasks
-              ? "Inline edits update project status and progress automatically."
-              : "Read-only task access for your role."
+            planTab === "plan"
+              ? "Scheduled work breakdown. Dates follow the dependencies you set."
+              : canEditTasks
+                ? "Inline edits update project status and progress automatically."
+                : "Read-only task access for your role."
           }
         />
+
+        <div className="plan-tabs" role="tablist" aria-label="Task views">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={planTab === "plan"}
+            className={planTab === "plan" ? "is-active" : ""}
+            onClick={() => setPlanTab("plan")}
+          >
+            <GanttChartSquare size={15} aria-hidden="true" />
+            Plan
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={planTab === "list"}
+            className={planTab === "list" ? "is-active" : ""}
+            onClick={() => setPlanTab("list")}
+          >
+            <ListChecks size={15} aria-hidden="true" />
+            List
+          </button>
+        </div>
+
+        {planTab === "plan" ? (
+          <ProjectPlan
+            project={project}
+            tasks={tasks}
+            employees={employees}
+            canEdit={canEditTasks && !limitedView}
+            onUpdateTask={onUpdateTask}
+            onCreateTask={onCreatePlanTask}
+            onDeleteTask={onDeleteTask}
+          />
+        ) : (
         <TaskTable
           tasks={tasks}
           projects={[project]}
@@ -5832,6 +5934,7 @@ function ProjectDetail({
           onSubmitTaskReview={onSubmitTaskReview}
           isTaskLocked={isTaskLocked}
         />
+        )}
       </section>
 
       <ProjectActivityTimeline project={project} tasks={tasks} comments={comments} />
