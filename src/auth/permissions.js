@@ -197,8 +197,10 @@ export function getCapabilities(user) {
     // between pipeline / current / historical. The portfolio GM cannot.
     canEditPortfolioStatus: role === ROLES.PORTFOLIO_PM || canEditOperations,
     isPortfolioAccount: PORTFOLIO_ROLES.includes(role),
-    // Administration registers projects and owns the payment terms.
-    canManagePaymentTerms: role === ROLES.PORTFOLIO_ADMIN || canEditOperations,
+    // Both Administration and the PM record the payment terms when they add a
+    // project. Raising the invoice stays Administration's alone.
+    canManagePaymentTerms:
+      role === ROLES.PORTFOLIO_ADMIN || role === ROLES.PORTFOLIO_PM || canEditOperations,
     // The PM confirms a payment milestone was reached, which bills it.
     canMarkPaymentMilestones: role === ROLES.PORTFOLIO_PM || canEditOperations,
     // Administration keeps the project paperwork (proposals, quotations).
