@@ -5525,3 +5525,88 @@ a {
   .plan-summary { gap: 14px; }
   .plan-summary .primary-button { margin-inline-start: 0; }
 }
+
+/* Setting or revising payment terms straight from a project card */
+.pf-terms-set,
+.pf-terms-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: start;
+  padding: 5px 11px;
+  border: 1px dashed rgba(160, 132, 13, 0.5);
+  border-radius: 8px;
+  background: rgba(160, 132, 13, 0.07);
+  color: #7a6409;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pf-terms-edit {
+  margin-top: 8px;
+  border-style: solid;
+  border-color: var(--border);
+  background: #f8fafc;
+  color: var(--muted);
+}
+
+.pf-terms-set:hover,
+.pf-terms-edit:hover {
+  background: rgba(160, 132, 13, 0.16);
+  color: #7a6409;
+}
+
+.pf-terms-editor {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(160, 132, 13, 0.4);
+  border-radius: 10px;
+  background: rgba(160, 132, 13, 0.06);
+}
+
+.pf-terms-field {
+  display: grid;
+  grid-template-columns: 1fr 84px;
+  align-items: center;
+  gap: 8px;
+}
+
+.pf-terms-field > span {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pf-terms-field input {
+  width: 100%;
+  min-height: 32px;
+  padding: 5px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--ink);
+}
+
+.pf-terms-field small {
+  grid-column: 1 / -1;
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.pf-terms-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pf-terms-actions .mini-action {
+  margin-top: 0;
+}
+
+.pf-terms-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

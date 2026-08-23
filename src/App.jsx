@@ -2744,6 +2744,7 @@ export default function App() {
             canRaiseInvoices={capabilities.canRaiseInvoices}
             onToggleMilestone={setPaymentMilestoneReached}
             onRaiseInvoice={raiseInvoice}
+            onUpdateTerms={updatePaymentTerms}
             onOpenWorkspace={capabilities.isPortfolioAccount || capabilities.canManageProjects ? setWorkspaceProjectId : undefined}
             onPrint={printReport}
           />
@@ -3204,6 +3205,65 @@ function getDepartmentId(project) {
   return match ? match.id : OTHER_DEPARTMENT.id;
 }
 
+// Set or revise a project's payment terms after it exists. Percentages a stage
+// has already been billed on stay untouched — only the split changes.
+function PortfolioTermsEditor({ project, onCancel, onSave }) {
+  const existing = getPaymentTerms(project);
+  const [percents, setPercents] = useState(() =>
+    Object.fromEntries(
+      PAYMENT_MILESTONES.map((milestone) => [
+        milestone.id,
+        existing[milestone.id].percent ? String(existing[milestone.id].percent) : "",
+      ]),
+    ),
+  );
+
+  const total = PAYMENT_MILESTONES.reduce((sum, m) => sum + clampPercent(percents[m.id]), 0);
+  const overBudget = total > 100;
+
+  return (
+    <div className="pf-terms-editor">
+      {PAYMENT_MILESTONES.map((milestone) => {
+        const entry = existing[milestone.id];
+        return (
+          <label className="pf-terms-field" key={milestone.id}>
+            <span>{milestone.label}</span>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              placeholder="0"
+              value={percents[milestone.id]}
+              onChange={(event) =>
+                setPercents((current) => ({ ...current, [milestone.id]: event.target.value }))
+              }
+            />
+            {entry.invoicedAt ? <small>invoiced</small> : entry.reached ? <small>reached</small> : null}
+          </label>
+        );
+      })}
+
+      <p className={`pf-terms-total${overBudget ? " is-over" : ""}`}>
+        Total {total}%{overBudget ? " — more than the contract" : ""}
+      </p>
+
+      <div className="pf-terms-actions">
+        <button
+          className="primary-button compact-button"
+          type="button"
+          disabled={overBudget}
+          onClick={() => onSave(percents)}
+        >
+          Save terms
+        </button>
+        <button className="mini-action" type="button" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function PortfolioProjectCard({
   project,
   tasks,
@@ -3212,15 +3272,18 @@ function PortfolioProjectCard({
   onChangeStage,
   canMarkMilestones,
   onToggleMilestone,
+  canManageTerms,
+  onUpdateTerms,
   onOpenWorkspace,
 }) {
+  const [editingTerms, setEditingTerms] = useState(false);
   const manager = employees.find((employee) => employee.id === project.managerId);
   const overdueTasks = tasks.filter(
     (task) => task.projectId === project.id && isOverdue(task),
   ).length;
   const progress = Number.isFinite(project.progress) ? project.progress : 0;
   const terms = getPaymentTerms(project);
-  const showPayment = hasPaymentTerms(project) || canMarkMilestones;
+  const showPayment = hasPaymentTerms(project) || canMarkMilestones || canManageTerms;
   const billed = getBilledPercent(project);
 
   return (
@@ -3249,7 +3312,16 @@ function PortfolioProjectCard({
             <span>Payment stages</span>
             {billed ? <strong>{billed}% billable</strong> : null}
           </div>
-          {hasPaymentTerms(project) ? (
+          {editingTerms ? (
+            <PortfolioTermsEditor
+              project={project}
+              onCancel={() => setEditingTerms(false)}
+              onSave={(percents) => {
+                onUpdateTerms(project.id, percents);
+                setEditingTerms(false);
+              }}
+            />
+          ) : hasPaymentTerms(project) ? (
             <ul className="pf-pay-list">
               {PAYMENT_MILESTONES.map((milestone) => {
                 const entry = terms[milestone.id];
@@ -3278,9 +3350,20 @@ function PortfolioProjectCard({
                 );
               })}
             </ul>
+          ) : canManageTerms ? (
+            <button className="pf-terms-set" type="button" onClick={() => setEditingTerms(true)}>
+              <Plus size={13} aria-hidden="true" />
+              Set payment terms
+            </button>
           ) : (
-            <p className="pf-pay-empty">No payment terms recorded by Administration yet.</p>
+            <p className="pf-pay-empty">No payment terms recorded yet.</p>
           )}
+
+          {!editingTerms && hasPaymentTerms(project) && canManageTerms ? (
+            <button className="pf-terms-edit" type="button" onClick={() => setEditingTerms(true)}>
+              Edit terms
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -3521,6 +3604,7 @@ function PortfolioDashboard({
   canRaiseInvoices,
   onToggleMilestone,
   onRaiseInvoice,
+  onUpdateTerms,
   onOpenWorkspace,
   onPrint,
 }) {
@@ -3662,6 +3746,8 @@ function PortfolioDashboard({
                     onChangeStage={onChangeStage}
                     canMarkMilestones={canMarkMilestones}
                     onToggleMilestone={onToggleMilestone}
+                    canManageTerms={canSetPaymentTerms}
+                    onUpdateTerms={onUpdateTerms}
                     onOpenWorkspace={onOpenWorkspace}
                   />
                 ))}
