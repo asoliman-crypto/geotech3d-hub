@@ -54,6 +54,11 @@ export function useSyncedTable(table, localKey, initialValue, options = {}) {
   // last-known server state, keyed by id — used to diff local writes
   const serverRef = useRef(new Map());
 
+  // Whether the first load from the server has landed. Until it has, whatever
+  // is in local state came from the offline cache, and pushing it would
+  // re-create rows other people deleted while this tab was signed out.
+  const hydratedRef = useRef(false);
+
   // mirror to localStorage as an offline cache (harmless when purely local)
   useEffect(() => {
     writeCache(localKey, value);
@@ -117,7 +122,7 @@ export function useSyncedTable(table, localKey, initialValue, options = {}) {
     (next) => {
       setValue((prev) => {
         const resolved = typeof next === "function" ? next(prev) : next;
-        if (active) pushDiff(prev, resolved, false);
+        if (active && hydratedRef.current) pushDiff(prev, resolved, false);
         return resolved;
       });
     },
@@ -130,7 +135,7 @@ export function useSyncedTable(table, localKey, initialValue, options = {}) {
     (next) => {
       setValue((prev) => {
         const resolved = typeof next === "function" ? next(prev) : next;
-        if (active) pushDiff(prev, resolved, true);
+        if (active && hydratedRef.current) pushDiff(prev, resolved, true);
         return resolved;
       });
     },
@@ -141,6 +146,7 @@ export function useSyncedTable(table, localKey, initialValue, options = {}) {
   useEffect(() => {
     if (!active) return undefined;
     let cancelled = false;
+    hydratedRef.current = false;
 
     (async () => {
       const { data, error } = await supabase
@@ -154,6 +160,7 @@ export function useSyncedTable(table, localKey, initialValue, options = {}) {
       }
       serverRef.current = new Map(data.map((r) => [r.id, r.data]));
       setValue(data.map((r) => r.data));
+      hydratedRef.current = true; // from here on, local edits are real edits
     })();
 
     const channel = supabase
