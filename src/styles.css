@@ -5610,3 +5610,24 @@ a {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Delete a project straight from its card (portfolio PM only) */
+.pf-delete-project {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  align-self: start;
+  padding: 6px 11px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pf-delete-project:hover {
+  border-color: var(--red);
+  background: #fee2e2;
+}

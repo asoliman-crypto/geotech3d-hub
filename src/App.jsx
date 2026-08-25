@@ -2152,7 +2152,7 @@ export default function App() {
   }
 
   function deleteProject(projectId) {
-    if (!capabilities.canManageProjects) return;
+    if (!capabilities.canDeletePortfolioProject) return;
     const project = projects.find((item) => item.id === projectId);
     if (!project) return;
     const projectTasks = tasks.filter((item) => item.projectId === projectId);
@@ -2171,7 +2171,7 @@ export default function App() {
       },
       ...current,
     ]);
-    if (selectedProjectId === projectId) {
+    if (selectedProjectId === projectId && canAccessView(currentUser, "projects")) {
       setActiveView("projects");
     }
     addAuditEvent(
@@ -2745,6 +2745,8 @@ export default function App() {
             onToggleMilestone={setPaymentMilestoneReached}
             onRaiseInvoice={raiseInvoice}
             onUpdateTerms={updatePaymentTerms}
+            canDeleteProject={capabilities.canDeletePortfolioProject}
+            onDeleteProject={deleteProject}
             onOpenWorkspace={capabilities.isPortfolioAccount || capabilities.canManageProjects ? setWorkspaceProjectId : undefined}
             onPrint={printReport}
           />
@@ -3274,6 +3276,8 @@ function PortfolioProjectCard({
   onToggleMilestone,
   canManageTerms,
   onUpdateTerms,
+  canDeleteProject,
+  onDeleteProject,
   onOpenWorkspace,
 }) {
   const [editingTerms, setEditingTerms] = useState(false);
@@ -3365,6 +3369,25 @@ function PortfolioProjectCard({
             </button>
           ) : null}
         </div>
+      ) : null}
+
+      {canDeleteProject ? (
+        <button
+          className="pf-delete-project"
+          type="button"
+          onClick={() => {
+            if (
+              window.confirm(
+                `Delete "${project.name}"? It moves to the Recycle Bin, so it can be restored.`,
+              )
+            ) {
+              onDeleteProject(project.id);
+            }
+          }}
+        >
+          <Trash2 size={13} aria-hidden="true" />
+          Delete project
+        </button>
       ) : null}
 
       {onOpenWorkspace ? (
@@ -3605,6 +3628,8 @@ function PortfolioDashboard({
   onToggleMilestone,
   onRaiseInvoice,
   onUpdateTerms,
+  canDeleteProject,
+  onDeleteProject,
   onOpenWorkspace,
   onPrint,
 }) {
@@ -3748,6 +3773,8 @@ function PortfolioDashboard({
                     onToggleMilestone={onToggleMilestone}
                     canManageTerms={canSetPaymentTerms}
                     onUpdateTerms={onUpdateTerms}
+                    canDeleteProject={canDeleteProject}
+                    onDeleteProject={onDeleteProject}
                     onOpenWorkspace={onOpenWorkspace}
                   />
                 ))}

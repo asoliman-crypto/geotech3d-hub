@@ -197,6 +197,9 @@ export function getCapabilities(user) {
     // between pipeline / current / historical. The portfolio GM cannot.
     canEditPortfolioStatus: role === ROLES.PORTFOLIO_PM || canEditOperations,
     isPortfolioAccount: PORTFOLIO_ROLES.includes(role),
+    // Deleting a project from the board is the PM's call — not Administration's
+    // and never the read-only GM's. Real project management keeps it too.
+    canDeletePortfolioProject: role === ROLES.PORTFOLIO_PM || canEditOperations,
     // Both Administration and the PM record the payment terms when they add a
     // project. Raising the invoice stays Administration's alone.
     canManagePaymentTerms:
