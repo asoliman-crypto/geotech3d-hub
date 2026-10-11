@@ -206,8 +206,10 @@ export function getCapabilities(user) {
       role === ROLES.PORTFOLIO_ADMIN || role === ROLES.PORTFOLIO_PM || canEditOperations,
     // The PM confirms a payment milestone was reached, which bills it.
     canMarkPaymentMilestones: role === ROLES.PORTFOLIO_PM || canEditOperations,
-    // Administration keeps the project paperwork (proposals, quotations).
-    canManageProjectFiles: role === ROLES.PORTFOLIO_ADMIN || canEditOperations,
+    // Administration and the PM both keep project paperwork (proposals,
+    // quotations, client data). The read-only GM can open files but not add them.
+    canManageProjectFiles:
+      role === ROLES.PORTFOLIO_ADMIN || role === ROLES.PORTFOLIO_PM || canEditOperations,
     // Administration raises the invoice once a milestone is confirmed.
     canRaiseInvoices: role === ROLES.PORTFOLIO_ADMIN || canEditOperations,
     // Both the PM and Administration may add a project to the board.
