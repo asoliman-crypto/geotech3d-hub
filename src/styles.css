@@ -3314,6 +3314,23 @@ a {
   cursor: progress;
 }
 
+/* A file is being dragged over the zone */
+.ws-drop.is-dragging {
+  border-style: solid;
+  border-color: var(--geo-gold);
+  background: rgba(160, 132, 13, 0.18);
+  transform: scale(1.01);
+}
+
+.ws-drop {
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+/* Children must not steal the drag events from the label */
+.ws-drop > * {
+  pointer-events: none;
+}
+
 .ws-drop input[type="file"] {
   display: none;
 }

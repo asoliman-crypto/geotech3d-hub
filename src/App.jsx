@@ -5044,6 +5044,23 @@ function ReviewQueuePage({ tasks, projects, employees, currentUser, onReviewTask
 function ProjectWorkspaceModal({ project, canManageFiles, onAttach, onDetach, onClose }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
+  const [dragging, setDragging] = useState(false);
+
+  // While the workspace is open, a file dropped anywhere other than the drop
+  // zone would make the browser open it in place of the app. Swallow those.
+  useEffect(() => {
+    if (!project || !canManageFiles) return undefined;
+    const stop = (event) => {
+      if (event.dataTransfer?.types?.includes("Files")) event.preventDefault();
+    };
+    window.addEventListener("dragover", stop);
+    window.addEventListener("drop", stop);
+    return () => {
+      window.removeEventListener("dragover", stop);
+      window.removeEventListener("drop", stop);
+    };
+  }, [project, canManageFiles]);
+
   if (!project) return null;
 
   const files = getProjectFiles(project);
@@ -5139,7 +5156,29 @@ function ProjectWorkspaceModal({ project, canManageFiles, onAttach, onDetach, on
           </header>
 
           {canManageFiles ? (
-            <label className={`ws-drop${busy ? " is-busy" : ""}`}>
+            <label
+              className={`ws-drop${busy ? " is-busy" : ""}${dragging ? " is-dragging" : ""}`}
+              onDragEnter={(event) => {
+                if (!event.dataTransfer?.types?.includes("Files")) return;
+                event.preventDefault();
+                if (!busy) setDragging(true);
+              }}
+              onDragOver={(event) => {
+                if (!event.dataTransfer?.types?.includes("Files")) return;
+                event.preventDefault();
+                event.dataTransfer.dropEffect = busy ? "none" : "copy";
+              }}
+              onDragLeave={(event) => {
+                // Moving across the icon or text fires dragleave too; only
+                // clear the highlight once the pointer has really left the box.
+                if (!event.currentTarget.contains(event.relatedTarget)) setDragging(false);
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                setDragging(false);
+                if (!busy) handleFiles(event.dataTransfer?.files);
+              }}
+            >
               <input
                 type="file"
                 multiple
@@ -5151,7 +5190,11 @@ function ProjectWorkspaceModal({ project, canManageFiles, onAttach, onDetach, on
               />
               <Upload size={18} aria-hidden="true" />
               <span>
-                {busy ? "Uploading…" : "Upload a financial proposal, quotation or any project document"}
+                {busy
+                  ? "Uploading…"
+                  : dragging
+                    ? "Drop to upload"
+                    : "Drag files here, or click to choose — invoices, proposals, any project document"}
               </span>
               <small>Up to {formatFileSize(MAX_FILE_BYTES)} per file</small>
             </label>
