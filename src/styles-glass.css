@@ -1,0 +1,745 @@
+/* ==========================================================================
+   Glass theme — portfolio accounts only (Administration, PM, GM)
+
+   A premium glassmorphism skin for the Portfolio Status screen. It changes
+   appearance only: every button, field and flow stays exactly where it is.
+
+   Scoped to `.app-shell.theme-glass`, which App.jsx sets only for the three
+   portfolio roles, so the rest of the app is untouched. Everything lives under
+   `@media screen`, so printing the board still produces the plain light page.
+
+   Identity: GEOTECH gold and charcoal carry over as the warm glow behind the
+   glass and the accent on every active state.
+   ========================================================================== */
+
+@media screen {
+  .app-shell.theme-glass {
+    --ink: #f5f1e8;
+    --muted: rgba(245, 241, 232, 0.62);
+    --border: rgba(255, 255, 255, 0.12);
+    --panel: rgba(255, 255, 255, 0.06);
+    --shadow: 0 24px 60px rgba(0, 0, 0, 0.38);
+
+    --glass-fill: linear-gradient(140deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.035));
+    --glass-fill-strong: linear-gradient(140deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.06));
+    --glass-edge: rgba(255, 255, 255, 0.14);
+    --glass-edge-bright: rgba(255, 255, 255, 0.22);
+    --glass-blur: blur(22px) saturate(150%);
+    --glass-shine: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    --gold-glow: #d9b84a;
+    --gold-deep: #a0840d;
+
+    color-scheme: dark;
+    color: var(--ink);
+    min-height: 100vh;
+    background:
+      radial-gradient(1100px 700px at 8% -10%, rgba(201, 169, 58, 0.34), transparent 60%),
+      radial-gradient(900px 650px at 105% 15%, rgba(160, 132, 13, 0.22), transparent 62%),
+      radial-gradient(800px 600px at 60% 115%, rgba(98, 99, 102, 0.38), transparent 60%),
+      radial-gradient(600px 420px at 30% 70%, rgba(109, 91, 7, 0.18), transparent 70%),
+      linear-gradient(160deg, #1d1a15 0%, #141210 45%, #0e0d0b 100%);
+    background-attachment: fixed;
+  }
+
+  /* --- Shared glass surface ------------------------------------------- */
+  .theme-glass .portfolio-board,
+  .theme-glass .pf-card,
+  .theme-glass .pf-invoices,
+  .theme-glass .pf-new-form,
+  .theme-glass .topbar-user-summary,
+  .theme-glass .sidebar-user {
+    border: 1px solid var(--glass-edge);
+    background: var(--glass-fill);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    box-shadow: var(--shadow), var(--glass-shine);
+  }
+
+  /* --- Shell: sidebar and top bar ------------------------------------ */
+  .theme-glass .sidebar {
+    border-right: 1px solid var(--glass-edge);
+    background: linear-gradient(180deg, rgba(20, 18, 15, 0.72), rgba(14, 13, 11, 0.6));
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+  }
+
+  .theme-glass .brand-mark {
+    border-color: rgba(255, 255, 255, 0.24);
+    background: linear-gradient(140deg, var(--gold-glow), var(--gold-deep));
+    box-shadow: 0 8px 22px rgba(201, 169, 58, 0.35);
+  }
+
+  .theme-glass .sidebar-user {
+    border-radius: 16px;
+  }
+
+  .theme-glass .main-panel {
+    background: transparent;
+  }
+
+  .theme-glass .topbar h1,
+  .theme-glass .topbar strong {
+    color: var(--ink);
+  }
+
+  .theme-glass .topbar-user-summary {
+    border-radius: 14px;
+  }
+
+  /* --- The board ------------------------------------------------------ */
+  .theme-glass .portfolio-board {
+    border-radius: 26px;
+    overflow: hidden;
+  }
+
+  .theme-glass .pf-board-head {
+    background:
+      linear-gradient(90deg, rgba(201, 169, 58, 0.16), transparent 55%),
+      rgba(10, 9, 8, 0.35);
+    border-bottom: 1px solid var(--glass-edge);
+  }
+
+  .theme-glass .pf-board-kicker {
+    color: var(--gold-glow);
+    letter-spacing: 0.18em;
+  }
+
+  .theme-glass .pf-board-head h2 {
+    color: #fffaf0;
+    text-shadow: 0 2px 24px rgba(201, 169, 58, 0.25);
+  }
+
+  .theme-glass .pf-add-button {
+    border-radius: 999px;
+    color: #1a1610;
+    background: linear-gradient(140deg, #e6c65a, var(--gold-deep));
+    box-shadow: 0 10px 26px rgba(201, 169, 58, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  }
+
+  .theme-glass .pf-add-button:hover {
+    filter: brightness(1.08);
+  }
+
+  .theme-glass .pf-print-button {
+    border-radius: 999px;
+    border-color: var(--glass-edge-bright);
+    background: rgba(255, 255, 255, 0.07);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+
+  .theme-glass .pf-print-button:hover {
+    background: rgba(255, 255, 255, 0.14);
+  }
+
+  /* Department rail */
+  .theme-glass .pf-depts {
+    border-right: 1px solid var(--glass-edge);
+    background: rgba(0, 0, 0, 0.16);
+  }
+
+  .theme-glass .pf-depts-heading {
+    color: rgba(245, 241, 232, 0.45);
+  }
+
+  .theme-glass .pf-dept {
+    border-radius: 12px;
+    color: var(--muted);
+  }
+
+  .theme-glass .pf-dept:hover {
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .theme-glass .pf-dept.is-active {
+    color: #fffaf0;
+    border-left-color: var(--gold-glow);
+    background: var(--glass-fill-strong);
+    box-shadow: var(--glass-shine);
+  }
+
+  .theme-glass .pf-dept-count,
+  .theme-glass .pf-tab-count {
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .theme-glass .pf-dept.is-active .pf-dept-count,
+  .theme-glass .pf-tab.is-active .pf-tab-count {
+    color: #1a1610;
+    background: linear-gradient(140deg, #e6c65a, var(--gold-deep));
+  }
+
+  /* Stage tabs: a glass segmented control */
+  .theme-glass .pf-tabs {
+    gap: 6px;
+    margin: 14px 16px 0;
+    padding: 6px;
+    border: 1px solid var(--glass-edge);
+    border-radius: 16px;
+    background: rgba(0, 0, 0, 0.22);
+  }
+
+  .theme-glass .pf-tab {
+    border-radius: 11px;
+    border-bottom-color: transparent;
+    color: var(--muted);
+  }
+
+  .theme-glass .pf-tab:hover {
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .theme-glass .pf-tab.is-active {
+    color: #fffaf0;
+    border-bottom-color: transparent;
+    background: var(--glass-fill-strong);
+    box-shadow: var(--glass-shine), 0 6px 18px rgba(0, 0, 0, 0.25),
+      inset 0 -2px 0 var(--gold-glow);
+  }
+
+  .theme-glass .pf-panel-caption,
+  .theme-glass .pf-stage-empty {
+    color: var(--muted);
+  }
+
+  .theme-glass .pf-stage-empty {
+    border-color: var(--glass-edge);
+  }
+
+  /* --- Project cards -------------------------------------------------- */
+  .theme-glass .pf-card {
+    border-radius: 20px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  .theme-glass .pf-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(217, 184, 74, 0.38);
+    box-shadow: 0 28px 60px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(217, 184, 74, 0.12),
+      var(--glass-shine);
+  }
+
+  .theme-glass .pf-card-title small {
+    color: var(--gold-glow);
+  }
+
+  .theme-glass .pf-card-title strong {
+    color: #fffaf0;
+  }
+
+  .theme-glass .pf-card-meta,
+  .theme-glass .pf-card-meta span {
+    color: var(--muted);
+  }
+
+  .theme-glass .pf-team-tag {
+    color: #f3dd8e;
+    border-color: rgba(217, 184, 74, 0.4);
+    background: rgba(217, 184, 74, 0.14);
+  }
+
+  .theme-glass .pf-card-control select,
+  .theme-glass .pf-new-field input,
+  .theme-glass .pf-new-field select,
+  .theme-glass .pf-terms-field input,
+  .theme-glass .pf-terms-grid input,
+  .theme-glass .change-password-modal input {
+    border: 1px solid var(--glass-edge);
+    border-radius: 12px;
+    color: var(--ink);
+    background: rgba(0, 0, 0, 0.28);
+  }
+
+  .theme-glass .pf-card-control select:focus,
+  .theme-glass .pf-new-field input:focus,
+  .theme-glass .pf-new-field select:focus,
+  .theme-glass .pf-terms-field input:focus,
+  .theme-glass .pf-terms-grid input:focus,
+  .theme-glass .change-password-modal input:focus {
+    border-color: var(--gold-glow);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(217, 184, 74, 0.2);
+  }
+
+  .theme-glass select option {
+    color: var(--ink);
+    background: #1d1a15;
+  }
+
+  /* Progress */
+  .theme-glass .progress-track {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .theme-glass .progress-fill {
+    background: linear-gradient(90deg, var(--gold-deep), #e6c65a);
+    box-shadow: 0 0 12px rgba(217, 184, 74, 0.45);
+  }
+
+  /* Payment stages */
+  .theme-glass .pf-pay-head {
+    color: rgba(245, 241, 232, 0.5);
+  }
+
+  .theme-glass .pf-pay-head strong {
+    color: #6ee7b7;
+  }
+
+  .theme-glass .pf-pay-row {
+    border-color: rgba(255, 255, 255, 0.09);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .theme-glass .pf-pay-row.is-reached {
+    border-color: rgba(52, 211, 153, 0.35);
+    background: rgba(16, 185, 129, 0.12);
+  }
+
+  .theme-glass .pf-pay-row input[type="checkbox"] {
+    accent-color: #34d399;
+  }
+
+  .theme-glass .pf-pay-name {
+    color: var(--ink);
+  }
+
+  .theme-glass .pf-pay-percent,
+  .theme-glass .pf-pay-empty {
+    color: var(--muted);
+  }
+
+  .theme-glass .pf-terms-set {
+    color: #f3dd8e;
+    border-color: rgba(217, 184, 74, 0.45);
+    background: rgba(217, 184, 74, 0.1);
+  }
+
+  .theme-glass .pf-terms-set:hover,
+  .theme-glass .pf-terms-edit:hover {
+    color: #fffaf0;
+    background: rgba(217, 184, 74, 0.2);
+  }
+
+  .theme-glass .pf-terms-edit {
+    color: var(--muted);
+    border-color: var(--glass-edge);
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .theme-glass .pf-terms-editor {
+    border-color: rgba(217, 184, 74, 0.35);
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.22);
+  }
+
+  .theme-glass .pf-terms-field > span {
+    color: var(--ink);
+  }
+
+  .theme-glass .pf-terms-total.is-over,
+  .theme-glass .pf-new-error {
+    color: #fca5a5;
+  }
+
+  /* Card footer actions */
+  .theme-glass .pf-open-ws {
+    color: var(--ink);
+    border-color: var(--glass-edge);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .theme-glass .pf-open-ws:hover {
+    border-color: rgba(217, 184, 74, 0.45);
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .theme-glass .pf-delete-project {
+    color: #fca5a5;
+    border-color: rgba(248, 113, 113, 0.32);
+    border-radius: 12px;
+    background: rgba(239, 68, 68, 0.1);
+  }
+
+  .theme-glass .pf-delete-project:hover {
+    border-color: rgba(248, 113, 113, 0.6);
+    background: rgba(239, 68, 68, 0.2);
+  }
+
+  /* --- New-project form and invoice queue ----------------------------- */
+  .theme-glass .pf-new-form {
+    border-color: rgba(217, 184, 74, 0.3);
+    border-radius: 20px;
+  }
+
+  .theme-glass .pf-new-field > span,
+  .theme-glass .pf-terms-fieldset legend,
+  .theme-glass .pf-terms-grid small,
+  .theme-glass .pf-terms-total {
+    color: var(--muted);
+  }
+
+  .theme-glass .pf-terms-fieldset {
+    border-color: rgba(217, 184, 74, 0.3);
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.18);
+  }
+
+  .theme-glass .pf-invoices {
+    border-color: rgba(217, 184, 74, 0.35);
+    border-radius: 20px;
+    background:
+      linear-gradient(140deg, rgba(217, 184, 74, 0.14), rgba(255, 255, 255, 0.03)),
+      rgba(255, 255, 255, 0.02);
+  }
+
+  .theme-glass .pf-invoices-title {
+    color: #fffaf0;
+  }
+
+  .theme-glass .pf-invoices-empty,
+  .theme-glass .pf-invoice-row small {
+    color: var(--muted);
+  }
+
+  .theme-glass .pf-invoice-row {
+    border-color: var(--glass-edge);
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.22);
+  }
+
+  /* --- Buttons, badges, notices -------------------------------------- */
+  .theme-glass .primary-button {
+    color: #1a1610;
+    background: linear-gradient(140deg, #e6c65a, var(--gold-deep));
+    box-shadow: 0 8px 20px rgba(201, 169, 58, 0.3);
+  }
+
+  .theme-glass .primary-button:hover {
+    filter: brightness(1.08);
+  }
+
+  .theme-glass .mini-action {
+    color: var(--ink);
+    border-color: var(--glass-edge);
+    background: rgba(255, 255, 255, 0.07);
+  }
+
+  .theme-glass .mini-action:hover {
+    background: rgba(255, 255, 255, 0.14);
+  }
+
+  .theme-glass .secondary-button,
+  .theme-glass .icon-button {
+    color: var(--ink);
+    border-color: var(--glass-edge);
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .theme-glass .secondary-button:hover,
+  .theme-glass .icon-button:hover {
+    border-color: rgba(217, 184, 74, 0.45);
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .theme-glass .badge-neutral,
+  .theme-glass .badge-monitor,
+  .theme-glass .badge-management {
+    color: var(--ink);
+    border-color: var(--glass-edge);
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .theme-glass .badge-success,
+  .theme-glass .badge-executive,
+  .theme-glass .badge-regional {
+    color: #6ee7b7;
+    border-color: rgba(52, 211, 153, 0.35);
+    background: rgba(16, 185, 129, 0.14);
+  }
+
+  .theme-glass .badge-warning {
+    color: #fcd34d;
+    border-color: rgba(251, 191, 36, 0.35);
+    background: rgba(245, 158, 11, 0.14);
+  }
+
+  .theme-glass .badge-danger {
+    color: #fca5a5;
+    border-color: rgba(248, 113, 113, 0.35);
+    background: rgba(239, 68, 68, 0.14);
+  }
+
+  .theme-glass .management-message,
+  .theme-glass .success-notice,
+  .theme-glass .archive-inline-note {
+    color: var(--ink);
+    border-color: var(--glass-edge);
+    background: rgba(255, 255, 255, 0.07);
+  }
+
+  .theme-glass .management-message-error {
+    color: #fca5a5;
+    border-color: rgba(248, 113, 113, 0.35);
+    background: rgba(239, 68, 68, 0.12);
+  }
+
+  /* --- Modals: workspace and change password ------------------------- */
+  .theme-glass .modal-backdrop {
+    background: rgba(8, 7, 6, 0.55);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+
+  .theme-glass .confirm-modal,
+  .theme-glass .change-password-modal {
+    color: var(--ink);
+    border: 1px solid var(--glass-edge-bright);
+    border-radius: 24px;
+    background: linear-gradient(150deg, rgba(42, 38, 31, 0.92), rgba(20, 18, 15, 0.9));
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    box-shadow: 0 40px 90px rgba(0, 0, 0, 0.6), var(--glass-shine);
+  }
+
+  .theme-glass .confirm-modal h2,
+  .theme-glass .confirm-modal h3,
+  .theme-glass .change-password-modal h2 {
+    color: #fffaf0;
+  }
+
+  .theme-glass .ws-summary,
+  .theme-glass .ws-term,
+  .theme-glass .ws-file {
+    color: var(--ink);
+    border-color: var(--glass-edge);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .theme-glass .ws-summary span,
+  .theme-glass .ws-file small,
+  .theme-glass .ws-empty {
+    color: var(--muted);
+  }
+
+  .theme-glass .ws-drop {
+    border-color: rgba(217, 184, 74, 0.5);
+    border-radius: 16px;
+    background: rgba(217, 184, 74, 0.07);
+  }
+
+  .theme-glass .ws-drop:hover {
+    background: rgba(217, 184, 74, 0.13);
+  }
+
+  .theme-glass .ws-drop.is-dragging {
+    border-color: var(--gold-glow);
+    background: rgba(217, 184, 74, 0.2);
+    box-shadow: 0 0 0 4px rgba(217, 184, 74, 0.15);
+  }
+
+  .theme-glass .ws-drop small {
+    color: var(--muted);
+  }
+
+  /* Scrollbars in the dark shell */
+  .theme-glass ::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  .theme-glass ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@media screen and (prefers-reduced-motion: reduce) {
+  .theme-glass .pf-card,
+  .theme-glass .pf-card:hover {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* ==========================================================================
+   Glass, round two: clearer panes and light that follows the pointer.
+
+   Glass only reads as glass when something is visible through it, so the
+   backdrop now carries defined shapes and a faint architectural grid for the
+   frosted panes to blur. Panes are more transparent, more blurred, and lit
+   along their top and left edges.
+   ========================================================================== */
+@media screen {
+  .app-shell.theme-glass {
+    --glass-fill: linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.035));
+    --glass-fill-strong: linear-gradient(145deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06));
+    --glass-edge: rgba(255, 255, 255, 0.14);
+    --glass-edge-bright: rgba(255, 255, 255, 0.26);
+    --glass-blur: blur(20px) saturate(150%);
+    --glass-shine: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 1px 0 0 rgba(255, 255, 255, 0.08);
+
+    background:
+      /* faint architectural grid */
+      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.028) 0 1px, transparent 1px 72px),
+      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.028) 0 1px, transparent 1px 72px),
+      /* defined light sources for the panes to blur */
+      radial-gradient(circle at 14% 18%, rgba(230, 198, 90, 0.55) 0 90px, transparent 300px),
+      radial-gradient(circle at 88% 12%, rgba(201, 169, 58, 0.4) 0 70px, transparent 260px),
+      radial-gradient(circle at 72% 78%, rgba(146, 148, 151, 0.42) 0 110px, transparent 340px),
+      radial-gradient(circle at 32% 92%, rgba(160, 132, 13, 0.38) 0 80px, transparent 280px),
+      radial-gradient(circle at 52% 42%, rgba(255, 244, 214, 0.1) 0 160px, transparent 420px),
+      linear-gradient(160deg, #1f1b15 0%, #15130f 48%, #0d0c0a 100%);
+    background-attachment: fixed;
+  }
+
+  /* The board is a clear sheet, so the cards on it stand out as panes */
+  .theme-glass .portfolio-board {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.01));
+  }
+
+  .theme-glass .pf-depts {
+    background: rgba(0, 0, 0, 0.1);
+  }
+
+  .theme-glass .pf-pay-row,
+  .theme-glass .pf-invoice-row,
+  .theme-glass .ws-file,
+  .theme-glass .ws-term,
+  .theme-glass .ws-summary {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.015));
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    backdrop-filter: blur(10px) saturate(140%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  }
+
+  /* --- Light under the pointer --------------------------------------- */
+  .theme-glass :is(
+    .pf-card, .pf-pay-row, .pf-dept, .pf-tab, .pf-invoices, .pf-invoice-row,
+    .pf-open-ws, .pf-terms-set, .pf-terms-edit, .pf-delete-project,
+    .pf-print-button, .pf-add-button, .ws-summary, .ws-term, .ws-file,
+    .ws-drop, .sidebar-user, .nav-list button, .mini-action,
+    .secondary-button, .primary-button
+  ) {
+    position: relative;
+    isolation: isolate;
+    transition:
+      border-color 0.2s ease,
+      background 0.2s ease,
+      box-shadow 0.25s ease,
+      transform 0.2s ease;
+  }
+
+  /* the soft spot of light that sits under the cursor */
+  .theme-glass :is(
+    .pf-card, .pf-pay-row, .pf-dept, .pf-tab, .pf-invoices, .pf-invoice-row,
+    .pf-open-ws, .pf-terms-set, .pf-terms-edit, .pf-delete-project,
+    .pf-print-button, .pf-add-button, .ws-summary, .ws-term, .ws-file,
+    .ws-drop, .sidebar-user, .nav-list button, .mini-action,
+    .secondary-button, .primary-button
+  )::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    background:
+      radial-gradient(
+        170px circle at var(--mx, 50%) var(--my, 50%),
+        rgba(255, 255, 255, 0.1),
+        rgba(255, 244, 214, 0.03) 40%,
+        transparent 70%
+      );
+    transition: opacity 0.25s ease;
+  }
+
+  /* the rim catching the same light */
+  .theme-glass :is(
+    .pf-card, .pf-pay-row, .pf-dept, .pf-tab, .pf-invoices, .pf-invoice-row,
+    .pf-open-ws, .ws-summary, .ws-term, .ws-file, .ws-drop, .sidebar-user,
+    .nav-list button
+  )::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    padding: 1px;
+    opacity: 0;
+    background: radial-gradient(
+      150px circle at var(--mx, 50%) var(--my, 50%),
+      rgba(255, 236, 170, 0.5),
+      transparent 70%
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box exclude,
+      linear-gradient(#000 0 0);
+    transition: opacity 0.25s ease;
+  }
+
+  .theme-glass :is(
+    .pf-card, .pf-pay-row, .pf-dept, .pf-tab, .pf-invoices, .pf-invoice-row,
+    .pf-open-ws, .pf-terms-set, .pf-terms-edit, .pf-delete-project,
+    .pf-print-button, .pf-add-button, .ws-summary, .ws-term, .ws-file,
+    .ws-drop, .sidebar-user, .nav-list button, .mini-action,
+    .secondary-button, .primary-button
+  ):hover::before,
+  .theme-glass :is(
+    .pf-card, .pf-pay-row, .pf-dept, .pf-tab, .pf-invoices, .pf-invoice-row,
+    .pf-open-ws, .ws-summary, .ws-term, .ws-file, .ws-drop, .sidebar-user,
+    .nav-list button
+  ):hover::after {
+    opacity: 1;
+  }
+
+  /* the pane itself brightens and lifts a touch */
+  .theme-glass :is(.pf-pay-row, .pf-invoice-row, .ws-file, .ws-term, .ws-summary):hover {
+    border-color: rgba(255, 255, 255, 0.24);
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.035));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 10px 26px rgba(0, 0, 0, 0.28);
+  }
+
+  .theme-glass .pf-card:hover {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.03));
+  }
+
+  .theme-glass .pf-invoices:hover {
+    border-color: rgba(217, 184, 74, 0.5);
+  }
+
+  /* Fields can't carry pseudo-elements, so they glow from inside instead */
+  .theme-glass :is(
+    .pf-card-control select, .pf-new-field input, .pf-new-field select,
+    .pf-terms-field input, .pf-terms-grid input, .change-password-modal input
+  ) {
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .theme-glass :is(
+    .pf-card-control select, .pf-new-field input, .pf-new-field select,
+    .pf-terms-field input, .pf-terms-grid input, .change-password-modal input
+  ):hover {
+    border-color: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), inset 0 0 24px rgba(255, 244, 214, 0.06);
+  }
+}
+
+@media screen and (prefers-reduced-motion: reduce) {
+  .theme-glass *::before,
+  .theme-glass *::after {
+    transition: none !important;
+  }
+}

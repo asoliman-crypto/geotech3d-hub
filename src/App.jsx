@@ -81,6 +81,7 @@ import { ProjectGanttReport } from "./components/ProjectGanttReport.jsx";
 import { ProjectCard } from "./components/ProjectCard.jsx";
 import { TaskGroupsByProject, TaskTable } from "./components/TaskTable.jsx";
 import { ProjectPlan } from "./components/ProjectPlan.jsx";
+import { attachGlassSheen } from "./lib/glassSheen.js";
 import {
   Badge,
   EmptyState,
@@ -2516,6 +2517,13 @@ export default function App() {
     return isProjectCancelled(project) && !capabilities.canManageProjects;
   }
 
+  // Glass theme: let each pane catch the light under the pointer.
+  const glassThemeActive = Boolean(currentUser && capabilities.isPortfolioAccount);
+  useEffect(() => {
+    if (!glassThemeActive) return undefined;
+    return attachGlassSheen(document);
+  }, [glassThemeActive]);
+
   if (backendActive && !authReady) {
     return <LidarLoader label="Connecting to GEOSPATIAL HUB" />;
   }
@@ -2525,7 +2533,11 @@ export default function App() {
   }
 
   return (
-    <div className={`app-shell ${sidebarCollapsed ? "sidebar-is-collapsed" : ""}`}>
+    <div
+      className={`app-shell ${sidebarCollapsed ? "sidebar-is-collapsed" : ""}${
+        capabilities.isPortfolioAccount ? " theme-glass" : ""
+      }`}
+    >
       {loader.active ? <LidarLoader label={loader.label} /> : null}
       <aside className={`sidebar ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
         <div className="brand-row">
