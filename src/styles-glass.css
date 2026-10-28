@@ -740,3 +740,69 @@
     transition: none !important;
   }
 }
+
+/* ==========================================================================
+   Glass, round three: mid-tone instead of night.
+
+   The near-black backdrop read as dark mode. The backdrop is now the
+   brand's graphite (#626366) and silver, lit softly from the top, so the
+   screen sits between light and dark. Panels that were near-black are
+   lifted to match; text stays light and is a touch brighter for contrast.
+   ========================================================================== */
+@media screen {
+  .app-shell.theme-glass {
+    --muted: rgba(245, 241, 232, 0.74);
+    background:
+      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 72px),
+      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 72px),
+      radial-gradient(circle at 18% 10%, rgba(255, 255, 255, 0.16) 0 140px, transparent 460px),
+      radial-gradient(circle at 78% 82%, rgba(146, 148, 151, 0.38) 0 120px, transparent 420px),
+      radial-gradient(circle at 55% 45%, rgba(255, 250, 238, 0.07) 0 180px, transparent 520px),
+      linear-gradient(160deg, #66686c 0%, #525458 48%, #3e4043 100%);
+    background-attachment: fixed;
+  }
+
+  .theme-glass .sidebar {
+    background: linear-gradient(180deg, rgba(40, 41, 44, 0.5), rgba(32, 33, 36, 0.42));
+  }
+
+  .theme-glass .pf-board-head {
+    background:
+      linear-gradient(90deg, rgba(217, 184, 74, 0.12), transparent 55%),
+      rgba(0, 0, 0, 0.16);
+  }
+
+  .theme-glass .pf-tabs {
+    background: rgba(0, 0, 0, 0.14);
+  }
+
+  .theme-glass .pf-depts {
+    background: rgba(0, 0, 0, 0.08);
+  }
+
+  .theme-glass :is(
+    .pf-card-control select, .pf-new-field input, .pf-new-field select,
+    .pf-terms-field input, .pf-terms-grid input, .change-password-modal input
+  ) {
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  .theme-glass .pf-invoice-row,
+  .theme-glass .pf-terms-editor,
+  .theme-glass .pf-terms-fieldset {
+    background: rgba(0, 0, 0, 0.14);
+  }
+
+  .theme-glass .confirm-modal,
+  .theme-glass .change-password-modal {
+    background: linear-gradient(150deg, rgba(78, 80, 84, 0.94), rgba(54, 56, 59, 0.94));
+  }
+
+  .theme-glass select option {
+    background: #3e4043;
+  }
+
+  .theme-glass .modal-backdrop {
+    background: rgba(30, 31, 34, 0.45);
+  }
+}
