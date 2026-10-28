@@ -584,9 +584,6 @@
     --glass-shine: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 1px 0 0 rgba(255, 255, 255, 0.08);
 
     background:
-      /* faint architectural grid */
-      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.028) 0 1px, transparent 1px 72px),
-      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.028) 0 1px, transparent 1px 72px),
       /* defined light sources for the panes to blur */
       radial-gradient(circle at 72% 78%, rgba(146, 148, 151, 0.42) 0 110px, transparent 340px),
       radial-gradient(circle at 52% 42%, rgba(255, 244, 214, 0.1) 0 160px, transparent 420px),
@@ -753,8 +750,8 @@
   .app-shell.theme-glass {
     --muted: rgba(245, 241, 232, 0.74);
     background:
-      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 72px),
-      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 72px),
+      /* topographic contour lines, as on a survey sheet */
+      url("./assets/contours.svg") center / cover no-repeat,
       /* one wide, soft wash of warm light from above, no spots */
       radial-gradient(ellipse 1400px 900px at 50% -15%, rgba(255, 232, 190, 0.13), transparent 70%),
       linear-gradient(160deg, #4b4239 0%, #3b342c 50%, #2c2722 100%);
@@ -803,5 +800,74 @@
 
   .theme-glass .modal-backdrop {
     background: rgba(28, 24, 20, 0.5);
+  }
+}
+
+/* ==========================================================================
+   Card text hierarchy: the project should be the first thing the eye lands on.
+
+   Name    — largest, boldest, brightest
+   Ref ID  — bright gold, so it can be scanned down a column
+   Client / owner / date — clearly readable, a step quieter
+   Section labels (PAYMENT STAGES) — smallest, so they recede
+   ========================================================================== */
+@media screen {
+  .theme-glass .pf-card-title {
+    gap: 4px;
+  }
+
+  .theme-glass .pf-card-title strong {
+    color: #fffaf0;
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    text-shadow: 0 1px 14px rgba(0, 0, 0, 0.35);
+  }
+
+  .theme-glass .pf-card-title small {
+    color: #ecd06a;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+  }
+
+  .theme-glass .pf-card-title span {
+    color: rgba(245, 241, 232, 0.82);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .theme-glass .pf-card-title .pf-team-tag {
+    margin-top: 6px;
+    padding: 3px 11px;
+    color: #f6e3a1;
+    font-size: 12px;
+  }
+
+  .theme-glass .pf-card-meta {
+    color: rgba(245, 241, 232, 0.84);
+    font-size: 13px;
+  }
+
+  .theme-glass .pf-card .status-pill {
+    font-size: 12.5px;
+    font-weight: 800;
+    padding-inline: 11px;
+  }
+
+  .theme-glass .pf-pay-name {
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .theme-glass .pf-pay-percent {
+    color: rgba(245, 241, 232, 0.8);
+    font-weight: 700;
+  }
+
+  .theme-glass .pf-pay-head {
+    font-size: 11px;
+    letter-spacing: 0.12em;
   }
 }
