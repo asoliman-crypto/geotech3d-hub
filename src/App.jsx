@@ -2525,7 +2525,11 @@ export default function App() {
   }
 
   return (
-    <div className={`app-shell ${sidebarCollapsed ? "sidebar-is-collapsed" : ""}`}>
+    <div
+      className={`app-shell ${sidebarCollapsed ? "sidebar-is-collapsed" : ""}${
+        capabilities.isPortfolioAccount ? " theme-glass" : ""
+      }`}
+    >
       {loader.active ? <LidarLoader label={loader.label} /> : null}
       <aside className={`sidebar ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
         <div className="brand-row">
