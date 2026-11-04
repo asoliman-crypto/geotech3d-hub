@@ -1,10 +1,18 @@
 // ---------------------------------------------------------------------------
-// Payment terms for a project.
+// Payment terms and the collection flow for a project.
 //
-// Administration records what share of the contract is billed at each stage;
-// the PM confirms when a stage is actually reached, which is what turns it
-// into an invoice Administration has to raise.
+//   1. The PM records what share of the contract each stage carries.
+//   2. The PM uploads the financial proposal, then each stage's invoice.
+//      An uploaded invoice means that stage's money is now due.
+//   3. Administration uploads the client's transfer proof and marks the stage
+//      paid.
+//   4. When every stage is paid, the project closes and moves to Historical.
+//
+// Documents live in project.files; each carries a `kind` (and a `milestone`
+// for stage documents) so the right file lands in the right slot.
 // ---------------------------------------------------------------------------
+
+import { getProjectFiles } from "../lib/projectFiles.js";
 
 export const PAYMENT_MILESTONES = [
   {
@@ -24,25 +32,35 @@ export const PAYMENT_MILESTONES = [
   },
 ];
 
+export const FILE_KINDS = {
+  proposal: "proposal",
+  invoice: "invoice",
+  proof: "proof",
+  other: "other",
+};
+
 export function clampPercent(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) return 0;
   return Math.min(100, Math.max(0, Math.round(number)));
 }
 
-/** Always hand back all three milestones, whatever shape the row has. */
+/**
+ * Always hand back all three milestones, whatever shape the row has.
+ * Every stored field is carried through — anything dropped here would be
+ * erased the next time the terms are saved.
+ */
 export function getPaymentTerms(project) {
   const stored = project?.payment || {};
   const terms = {};
   for (const milestone of PAYMENT_MILESTONES) {
     const entry = stored[milestone.id] || {};
     terms[milestone.id] = {
+      ...entry,
       percent: clampPercent(entry.percent),
-      reached: Boolean(entry.reached),
-      reachedAt: entry.reachedAt || "",
-      reachedBy: entry.reachedBy || "",
-      invoicedAt: entry.invoicedAt || "",
-      invoicedBy: entry.invoicedBy || "",
+      paid: Boolean(entry.paid),
+      paidAt: entry.paidAt || "",
+      paidBy: entry.paidBy || "",
     };
   }
   return terms;
@@ -58,27 +76,95 @@ export function getTermsTotal(project) {
   return PAYMENT_MILESTONES.reduce((sum, m) => sum + terms[m.id].percent, 0);
 }
 
-/** Percentage of the contract already confirmed as billable. */
-export function getBilledPercent(project) {
+/** Stages that actually carry part of the contract. */
+export function getActiveMilestones(project) {
+  const terms = getPaymentTerms(project);
+  return PAYMENT_MILESTONES.filter((m) => terms[m.id].percent > 0);
+}
+
+// --- documents --------------------------------------------------------------
+
+export function getKind(file) {
+  return FILE_KINDS[file?.kind] ? file.kind : FILE_KINDS.other;
+}
+
+export function getProposalFile(project) {
+  return getProjectFiles(project).find((file) => getKind(file) === FILE_KINDS.proposal) || null;
+}
+
+export function getStageFile(project, milestoneId, kind) {
+  return (
+    getProjectFiles(project).find(
+      (file) => getKind(file) === kind && file.milestone === milestoneId,
+    ) || null
+  );
+}
+
+export function getOtherFiles(project) {
+  return getProjectFiles(project).filter((file) => getKind(file) === FILE_KINDS.other);
+}
+
+// --- collection state -------------------------------------------------------
+
+export const STAGE_STATE = {
+  awaitingInvoice: "awaiting-invoice",
+  paymentDue: "payment-due",
+  paid: "paid",
+};
+
+export function getStageState(project, milestoneId) {
+  const entry = getPaymentTerms(project)[milestoneId];
+  if (entry?.paid) return STAGE_STATE.paid;
+  if (getStageFile(project, milestoneId, FILE_KINDS.invoice)) return STAGE_STATE.paymentDue;
+  return STAGE_STATE.awaitingInvoice;
+}
+
+export const STAGE_STATE_LABEL = {
+  [STAGE_STATE.awaitingInvoice]: "Awaiting invoice",
+  [STAGE_STATE.paymentDue]: "Payment due",
+  [STAGE_STATE.paid]: "Paid",
+};
+
+export const STAGE_STATE_TONE = {
+  [STAGE_STATE.awaitingInvoice]: "neutral",
+  [STAGE_STATE.paymentDue]: "warning",
+  [STAGE_STATE.paid]: "success",
+};
+
+/** Share of the contract the client has actually paid. */
+export function getCollectedPercent(project) {
   const terms = getPaymentTerms(project);
   return PAYMENT_MILESTONES.reduce(
-    (sum, m) => sum + (terms[m.id].reached ? terms[m.id].percent : 0),
+    (sum, m) => sum + (terms[m.id].paid ? terms[m.id].percent : 0),
     0,
   );
 }
 
-/** Milestones the PM confirmed but Administration has not invoiced yet. */
-export function getPendingInvoices(projects) {
-  const pending = [];
+/** Every stage that carries a share of the contract has been paid. */
+export function isFullyPaid(project) {
+  const active = getActiveMilestones(project);
+  if (!active.length) return false;
+  const terms = getPaymentTerms(project);
+  return active.every((m) => terms[m.id].paid);
+}
+
+/** Invoiced stages still waiting for the client's money — Administration's queue. */
+export function getPaymentsToCollect(projects) {
+  const due = [];
   for (const project of projects || []) {
-    const terms = getPaymentTerms(project);
-    for (const milestone of PAYMENT_MILESTONES) {
-      const entry = terms[milestone.id];
-      if (entry.reached && !entry.invoicedAt) {
-        pending.push({ project, milestone, entry });
-      }
+    for (const milestone of getActiveMilestones(project)) {
+      if (getStageState(project, milestone.id) !== STAGE_STATE.paymentDue) continue;
+      const invoice = getStageFile(project, milestone.id, FILE_KINDS.invoice);
+      due.push({
+        project,
+        milestone,
+        percent: getPaymentTerms(project)[milestone.id].percent,
+        invoice,
+      });
     }
   }
-  // Oldest confirmation first — that is the one that has been waiting longest.
-  return pending.sort((a, b) => String(a.entry.reachedAt).localeCompare(String(b.entry.reachedAt)));
+  // Oldest invoice first — that money has been outstanding longest.
+  return due.sort((a, b) =>
+    String(a.invoice?.uploadedAt || "").localeCompare(String(b.invoice?.uploadedAt || "")),
+  );
 }

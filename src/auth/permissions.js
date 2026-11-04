@@ -200,21 +200,18 @@ export function getCapabilities(user) {
     // Deleting a project from the board is the PM's call — not Administration's
     // and never the read-only GM's. Real project management keeps it too.
     canDeletePortfolioProject: role === ROLES.PORTFOLIO_PM || canEditOperations,
-    // Both Administration and the PM record the payment terms when they add a
-    // project. Raising the invoice stays Administration's alone.
-    canManagePaymentTerms:
-      role === ROLES.PORTFOLIO_ADMIN || role === ROLES.PORTFOLIO_PM || canEditOperations,
-    // The PM confirms a payment milestone was reached, which bills it.
-    canMarkPaymentMilestones: role === ROLES.PORTFOLIO_PM || canEditOperations,
-    // Administration and the PM both keep project paperwork (proposals,
-    // quotations, client data). The read-only GM can open files but not add them.
+    // The PM runs the commercial side of a project: adds it, sets the payment
+    // terms, and uploads the financial proposal and each stage's invoice.
+    canAddPortfolioProject: role === ROLES.PORTFOLIO_PM || canEditOperations,
+    canManagePaymentTerms: role === ROLES.PORTFOLIO_PM || canEditOperations,
+    canManageBillingDocs: role === ROLES.PORTFOLIO_PM || canEditOperations,
+    // Administration audits collection: uploads the client's transfer proof
+    // and confirms each stage was paid. It does not add or change projects.
+    canRecordPayments: role === ROLES.PORTFOLIO_ADMIN || canEditOperations,
+    // General project documents can be added by either side. The read-only
+    // GM can open everything but add nothing.
     canManageProjectFiles:
       role === ROLES.PORTFOLIO_ADMIN || role === ROLES.PORTFOLIO_PM || canEditOperations,
-    // Administration raises the invoice once a milestone is confirmed.
-    canRaiseInvoices: role === ROLES.PORTFOLIO_ADMIN || canEditOperations,
-    // Both the PM and Administration may add a project to the board.
-    canAddPortfolioProject:
-      role === ROLES.PORTFOLIO_PM || role === ROLES.PORTFOLIO_ADMIN || canEditOperations,
     canEditProtectedData: canEditOperations,
     canViewExecutiveDashboard:
       PROJECT_MANAGEMENT_ROLES.includes(role) ||

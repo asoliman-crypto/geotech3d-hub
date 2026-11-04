@@ -235,7 +235,7 @@ const portfolioUsers = [
   {
     id: "portfolio-admin",
     employeeId: null,
-    name: "Administration (Portfolio)",
+    name: "Mekky",
     username: "admin.portfolio",
     // A real domain: Supabase rejects .local addresses when the app registers
     // an account, and this one was created through the app itself.
@@ -244,9 +244,9 @@ const portfolioUsers = [
     role: ROLES.PORTFOLIO_ADMIN,
     badge: "ADMINISTRATION",
     department: "Administration",
-    title: "Administration - Contracts & Invoicing",
-    actualRole: "Payment terms and invoicing",
-    accessType: "Portfolio dashboard - payment terms and invoices",
+    title: "Administration - Payment Audit",
+    actualRole: "Records client transfers and confirms each stage is paid",
+    accessType: "Portfolio dashboard - payment audit",
   },
 ];
 

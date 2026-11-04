@@ -142,12 +142,22 @@ import {
   PAYMENT_MILESTONES,
   clampPercent,
   getPaymentTerms,
-  getPendingInvoices,
-  getBilledPercent,
+  FILE_KINDS,
+  STAGE_STATE,
+  STAGE_STATE_LABEL,
+  STAGE_STATE_TONE,
+  getActiveMilestones,
+  getCollectedPercent,
+  getKind,
+  getOtherFiles,
+  getPaymentsToCollect,
+  getProposalFile,
+  getStageFile,
+  getStageState,
+  isFullyPaid,
   getTermsTotal,
   hasPaymentTerms,
 } from "./utils/paymentTerms.js";
-import { downloadInvoiceTemplate } from "./utils/invoiceTemplate.js";
 import {
   MAX_FILE_BYTES,
   formatFileSize,
@@ -594,7 +604,6 @@ export default function App() {
   const [taskRequestMessage, setTaskRequestMessage] = useState("");
   const [cancelProjectDraft, setCancelProjectDraft] = useState(null);
   const [changingPassword, setChangingPassword] = useState(false);
-  const [workspaceProjectId, setWorkspaceProjectId] = useState("");
   const [loader, setLoader] = useState({ active: false, label: "Loading workspace" });
 
   const normalizedProjects = useMemo(() => normalizeProjectsForEmployees(projects), [projects]);
@@ -1861,33 +1870,98 @@ export default function App() {
 
   // Project file workspace: bytes go to storage, the listing lives on the
   // project row so everyone sees the same documents.
-  async function attachProjectFile(projectId, file) {
-    if (!capabilities.canManageProjectFiles) {
-      return { ok: false, message: "You do not have permission to attach files." };
+  // Who may put a document into which slot. The PM owns the commercial
+  // paperwork, Administration owns the proof that the money arrived, and
+  // general documents are open to both.
+  function canHandleFileKind(kind) {
+    if (kind === FILE_KINDS.proposal || kind === FILE_KINDS.invoice) {
+      return capabilities.canManageBillingDocs;
     }
+    if (kind === FILE_KINDS.proof) return capabilities.canRecordPayments;
+    return capabilities.canManageProjectFiles;
+  }
+
+  /**
+   * Upload a document into a project slot.
+   * slot = { kind: "proposal" | "invoice" | "proof" | "other", milestone? }
+   * Proposal, invoice and proof slots hold one file each, so a new upload
+   * replaces the previous one.
+   */
+  async function attachProjectFile(projectId, file, slot = { kind: FILE_KINDS.other }) {
+    const kind = FILE_KINDS[slot?.kind] ? slot.kind : FILE_KINDS.other;
+    const milestoneId = slot?.milestone || "";
+    if (!canHandleFileKind(kind)) {
+      return { ok: false, message: "You do not have permission to upload this document." };
+    }
+    const project = projects.find((item) => item.id === projectId);
+    if (!project) return { ok: false, message: "Project not found." };
+
+    const milestone = PAYMENT_MILESTONES.find((item) => item.id === milestoneId);
+    if (kind === FILE_KINDS.invoice || kind === FILE_KINDS.proof) {
+      if (!milestone) return { ok: false, message: "Choose the payment stage first." };
+      if (getPaymentTerms(project)[milestoneId].paid) {
+        return {
+          ok: false,
+          message: `${milestone.label} is already marked paid. Un-mark it to change its documents.`,
+        };
+      }
+    }
+
     const result = await uploadProjectFile(projectId, file, currentUser.name);
     if (!result.ok) return result;
+    const stored = { ...result.file, kind, ...(milestoneId ? { milestone: milestoneId } : {}) };
+
+    // A single-file slot keeps only the newest upload.
+    const replaced =
+      kind === FILE_KINDS.proposal
+        ? getProposalFile(project)
+        : kind === FILE_KINDS.invoice || kind === FILE_KINDS.proof
+          ? getStageFile(project, milestoneId, kind)
+          : null;
 
     setProjects((current) =>
-      current.map((item) =>
-        item.id === projectId
-          ? { ...item, files: [result.file, ...getProjectFiles(item)] }
-          : item,
-      ),
+      current.map((item) => {
+        if (item.id !== projectId) return item;
+        const kept = getProjectFiles(item).filter((entry) => !replaced || entry.path !== replaced.path);
+        return { ...item, files: [stored, ...kept] };
+      }),
     );
-    const project = projects.find((item) => item.id === projectId);
+    if (replaced) removeProjectFile(replaced);
+
+    const label = FILE_KIND_LABEL[kind];
+    const what = milestone ? `${milestone.label} ${label.toLowerCase()}` : label.toLowerCase();
     addAuditEvent(
       "project",
-      "File attached",
-      `${currentUser.name} attached "${file.name}" to ${project?.name || projectId}.`,
+      replaced ? `${label} replaced` : `${label} uploaded`,
+      `${currentUser.name} uploaded the ${what} "${file.name}" for ${project.name}.`,
       { relatedProjectId: projectId },
     );
+
+    // An invoice is what puts money on Administration's desk.
+    if (kind === FILE_KINDS.invoice && !replaced) {
+      const percent = getPaymentTerms(project)[milestoneId].percent;
+      const share = percent ? ` (${percent}% of the contract)` : "";
+      addNotification({
+        type: "critical",
+        actionRequired: true,
+        targetRoles: [ROLES.PORTFOLIO_ADMIN, ROLES.ADMIN, ROLES.GM],
+        title: `Payment to collect — ${milestone.label}`,
+        message: `${project.name}: the ${milestone.label.toLowerCase()} invoice${share} was issued. Upload the transfer proof once the client pays.`,
+        relatedProjectId: projectId,
+        paymentMilestoneId: milestoneId,
+      });
+    }
     return { ok: true, message: `"${file.name}" uploaded.` };
   }
 
   async function detachProjectFile(projectId, file) {
-    if (!capabilities.canManageProjectFiles) {
-      return { ok: false, message: "You do not have permission to remove files." };
+    const kind = getKind(file);
+    if (!canHandleFileKind(kind)) {
+      return { ok: false, message: "You do not have permission to remove this document." };
+    }
+    const project = projects.find((item) => item.id === projectId);
+    if (file.milestone && getPaymentTerms(project)[file.milestone]?.paid) {
+      return { ok: false, message: "This stage is marked paid. Un-mark it before removing its documents." };
     }
     const result = await removeProjectFile(file);
     if (!result.ok) return result;
@@ -1899,124 +1973,111 @@ export default function App() {
           : item,
       ),
     );
-    const project = projects.find((item) => item.id === projectId);
     addAuditEvent(
       "project",
-      "File removed",
+      `${FILE_KIND_LABEL[kind]} removed`,
       `${currentUser.name} removed "${file.name}" from ${project?.name || projectId}.`,
       { relatedProjectId: projectId },
     );
     return { ok: true, message: `"${file.name}" removed.` };
   }
 
-  // The PM confirms a payment stage was reached. That is what tells
-  // Administration an invoice is now due, so it raises a notification for them.
-  function setPaymentMilestoneReached(projectId, milestoneId, reached) {
-    if (!capabilities.canMarkPaymentMilestones) return;
+  // Administration confirms the client paid a stage. Paying the last stage
+  // closes the project and moves it to Historical; un-marking a stage on a
+  // project that was closed this way re-opens it.
+  function setStagePaid(projectId, milestoneId, paid) {
+    if (!capabilities.canRecordPayments) {
+      return { ok: false, message: "You do not have permission to record payments." };
+    }
     const project = projects.find((item) => item.id === projectId);
     const milestone = PAYMENT_MILESTONES.find((item) => item.id === milestoneId);
-    if (!project || !milestone) return;
+    if (!project || !milestone) return { ok: false, message: "Project not found." };
 
-    const terms = getPaymentTerms(project);
+    if (paid) {
+      if (!getStageFile(project, milestoneId, FILE_KINDS.invoice)) {
+        return { ok: false, message: `Upload the ${milestone.label.toLowerCase()} invoice first.` };
+      }
+      if (!getStageFile(project, milestoneId, FILE_KINDS.proof)) {
+        return { ok: false, message: "Upload the transfer proof before marking this stage paid." };
+      }
+    }
+
     const now = new Date().toISOString();
+    const itemTerms = getPaymentTerms(project);
+    const updated = {
+      ...project,
+      payment: {
+        ...itemTerms,
+        [milestoneId]: {
+          ...itemTerms[milestoneId],
+          paid,
+          paidAt: paid ? now : "",
+          paidBy: paid ? currentUser.name : "",
+        },
+      },
+    };
+    const closed = paid && isFullyPaid(updated) && project.status !== "Completed";
+    const reopened = !paid && Boolean(project.closedByPayment);
 
     setProjects((current) =>
       current.map((item) => {
         if (item.id !== projectId) return item;
-        const itemTerms = getPaymentTerms(item);
-        return {
+        const terms = getPaymentTerms(item);
+        const next = {
           ...item,
           payment: {
-            ...itemTerms,
+            ...terms,
             [milestoneId]: {
-              ...itemTerms[milestoneId],
-              reached,
-              reachedAt: reached ? now : "",
-              reachedBy: reached ? currentUser.name : "",
-              // Un-ticking also withdraws an invoice that was never raised.
-              invoicedAt: reached ? itemTerms[milestoneId].invoicedAt : "",
-              invoicedBy: reached ? itemTerms[milestoneId].invoicedBy : "",
+              ...terms[milestoneId],
+              paid,
+              paidAt: paid ? now : "",
+              paidBy: paid ? currentUser.name : "",
             },
           },
         };
+        if (paid && isFullyPaid(next) && next.status !== "Completed") {
+          return { ...next, status: "Completed", statusPinned: true, closedByPayment: true, closedByPaymentAt: now };
+        }
+        if (!paid && item.closedByPayment) {
+          return { ...next, status: "In Progress", statusPinned: true, closedByPayment: false, closedByPaymentAt: "" };
+        }
+        return next;
       }),
     );
 
-    const percent = terms[milestoneId].percent;
-    if (reached) {
+    const percent = itemTerms[milestoneId].percent;
+    const share = percent ? ` (${percent}%)` : "";
+    addAuditEvent(
+      "project",
+      paid ? "Payment received" : "Payment un-marked",
+      paid
+        ? `${project.name}: ${milestone.label}${share} confirmed paid by ${currentUser.name}.`
+        : `${project.name}: ${milestone.label} payment was un-marked by ${currentUser.name}.`,
+      { relatedProjectId: projectId },
+    );
+    if (paid) {
       addNotification({
-        type: "critical",
-        actionRequired: true,
-        targetRoles: [ROLES.PORTFOLIO_ADMIN, ROLES.ADMIN, ROLES.GM],
-        title: `Invoice due — ${milestone.label}`,
-        message: `${project.name} reached ${milestone.label.toLowerCase()}${
-          percent ? ` (${percent}% of the contract)` : ""
-        }. Raise the invoice and send it to ${project.client || "the client"}.`,
+        type: "success",
+        targetRoles: [ROLES.PORTFOLIO_PM, ROLES.ADMIN, ROLES.GM],
+        title: `Payment received — ${milestone.label}`,
+        message: `${project.name}: ${currentUser.name} confirmed the ${milestone.label.toLowerCase()} payment${share}.`,
         relatedProjectId: projectId,
-        paymentMilestoneId: milestoneId,
       });
     }
-
-    addAuditEvent(
-      "project",
-      reached ? "Payment stage reached" : "Payment stage reverted",
-      reached
-        ? `${project.name}: ${milestone.label} confirmed by ${currentUser.name}${
-            percent ? ` — ${percent}% billable` : ""
-          }.`
-        : `${project.name}: ${milestone.label} was un-marked by ${currentUser.name}.`,
-      { relatedProjectId: projectId },
-    );
+    if (closed) {
+      addAuditEvent("project", "Project fully paid", `${project.name} was fully paid and moved to Historical.`, {
+        relatedProjectId: projectId,
+      });
+    }
+    if (reopened) {
+      addAuditEvent("project", "Project re-opened", `${project.name} was re-opened because a payment was un-marked.`, {
+        relatedProjectId: projectId,
+      });
+    }
+    return { ok: true, closed, reopened };
   }
 
-  // Administration downloads the invoice template and the milestone is then
-  // recorded as invoiced, so it leaves their queue.
-  function raiseInvoice(projectId, milestoneId) {
-    if (!capabilities.canRaiseInvoices) return;
-    const project = projects.find((item) => item.id === projectId);
-    const milestone = PAYMENT_MILESTONES.find((item) => item.id === milestoneId);
-    if (!project || !milestone) return;
-
-    const terms = getPaymentTerms(project);
-    downloadInvoiceTemplate({
-      project,
-      milestoneId,
-      percent: terms[milestoneId].percent,
-      preparedBy: currentUser.name,
-    });
-
-    const now = new Date().toISOString();
-    setProjects((current) =>
-      current.map((item) => {
-        if (item.id !== projectId) return item;
-        const itemTerms = getPaymentTerms(item);
-        return {
-          ...item,
-          payment: {
-            ...itemTerms,
-            [milestoneId]: { ...itemTerms[milestoneId], invoicedAt: now, invoicedBy: currentUser.name },
-          },
-        };
-      }),
-    );
-
-    addNotification({
-      type: "info",
-      targetRoles: [ROLES.PORTFOLIO_PM, ROLES.ADMIN, ROLES.GM],
-      title: `Invoice raised — ${milestone.label}`,
-      message: `${currentUser.name} prepared the ${milestone.label.toLowerCase()} invoice for ${project.name}.`,
-      relatedProjectId: projectId,
-    });
-
-    addAuditEvent(
-      "project",
-      "Invoice prepared",
-      `${milestone.label} invoice for ${project.name} was prepared by ${currentUser.name}.`,
-      { relatedProjectId: projectId },
-    );
-  }
-
-  // Administration owns the payment terms and can revise them later.
+  // The PM sets the payment terms and can revise them later.
   function updatePaymentTerms(projectId, percents) {
     if (!capabilities.canManagePaymentTerms) return;
     const project = projects.find((item) => item.id === projectId);
@@ -2752,14 +2813,15 @@ export default function App() {
             onCreateProject={createPortfolioProject}
             canAddProject={capabilities.canAddPortfolioProject}
             canSetPaymentTerms={capabilities.canManagePaymentTerms}
-            canMarkMilestones={capabilities.canMarkPaymentMilestones}
-            canRaiseInvoices={capabilities.canRaiseInvoices}
-            onToggleMilestone={setPaymentMilestoneReached}
-            onRaiseInvoice={raiseInvoice}
+            canManageBillingDocs={capabilities.canManageBillingDocs}
+            canRecordPayments={capabilities.canRecordPayments}
+            canManageProjectFiles={capabilities.canManageProjectFiles}
+            onAttachFile={attachProjectFile}
+            onDetachFile={detachProjectFile}
+            onSetStagePaid={setStagePaid}
             onUpdateTerms={updatePaymentTerms}
             canDeleteProject={capabilities.canDeletePortfolioProject}
             onDeleteProject={deleteProject}
-            onOpenWorkspace={capabilities.isPortfolioAccount || capabilities.canManageProjects ? setWorkspaceProjectId : undefined}
             onPrint={printReport}
           />
         )}
@@ -2991,16 +3053,6 @@ export default function App() {
 
         {activeView === "settings" && capabilities.canManageSettings && <SettingsPage />}
       </main>
-      {workspaceProjectId ? (
-        <ProjectWorkspaceModal
-          project={roleScopedProjects.find((item) => item.id === workspaceProjectId)}
-          canManageFiles={capabilities.canManageProjectFiles}
-          onAttach={attachProjectFile}
-          onDetach={detachProjectFile}
-          onClose={() => setWorkspaceProjectId("")}
-        />
-      ) : null}
-
       {changingPassword ? (
         <ChangePasswordModal
           currentUser={currentUser}
@@ -3158,6 +3210,13 @@ function DailyReport({ report, currentUser, onExportCsv, onPrint }) {
 // Portfolio dashboard — the single screen the GM/PM portfolio accounts see.
 // Projects are grouped into three stages: pipeline, current, historical.
 // ---------------------------------------------------------------------------
+const FILE_KIND_LABEL = {
+  proposal: "Financial proposal",
+  invoice: "Invoice",
+  proof: "Transfer proof",
+  other: "Document",
+};
+
 const AUTO_PROJECT_STATUS = "__auto__";
 
 const PORTFOLIO_STAGES = [
@@ -3219,8 +3278,8 @@ function getDepartmentId(project) {
   return match ? match.id : OTHER_DEPARTMENT.id;
 }
 
-// Set or revise a project's payment terms after it exists. Percentages a stage
-// has already been billed on stay untouched — only the split changes.
+// Set or revise a project's payment terms after it exists. A stage that is
+// already paid keeps its payment record — only the split changes.
 function PortfolioTermsEditor({ project, onCancel, onSave }) {
   const existing = getPaymentTerms(project);
   const [percents, setPercents] = useState(() =>
@@ -3252,7 +3311,7 @@ function PortfolioTermsEditor({ project, onCancel, onSave }) {
                 setPercents((current) => ({ ...current, [milestone.id]: event.target.value }))
               }
             />
-            {entry.invoicedAt ? <small>invoiced</small> : entry.reached ? <small>reached</small> : null}
+            {entry.paid ? <small>paid</small> : null}
           </label>
         );
       })}
@@ -3284,13 +3343,11 @@ function PortfolioProjectCard({
   employees,
   canEditStatus,
   onChangeStage,
-  canMarkMilestones,
-  onToggleMilestone,
   canManageTerms,
   onUpdateTerms,
   canDeleteProject,
   onDeleteProject,
-  onOpenWorkspace,
+  onOpenProject,
 }) {
   const [editingTerms, setEditingTerms] = useState(false);
   const manager = employees.find((employee) => employee.id === project.managerId);
@@ -3299,18 +3356,24 @@ function PortfolioProjectCard({
   ).length;
   const progress = Number.isFinite(project.progress) ? project.progress : 0;
   const terms = getPaymentTerms(project);
-  const showPayment = hasPaymentTerms(project) || canMarkMilestones || canManageTerms;
-  const billed = getBilledPercent(project);
+  const showPayment = hasPaymentTerms(project) || canManageTerms;
+  const collected = getCollectedPercent(project);
+  const documentCount = getProjectFiles(project).length;
 
   return (
     <article className="pf-card">
       <header className="pf-card-head">
-        <div className="pf-card-title">
+        <button
+          className="pf-card-title pf-card-open"
+          type="button"
+          onClick={() => onOpenProject(project.id)}
+          title="Open project"
+        >
           <small>{project.id}</small>
           <strong>{project.name || "Untitled project"}</strong>
           {project.teamLabel ? <span className="pf-team-tag">{project.teamLabel}</span> : null}
           {project.client ? <span>{project.client}</span> : null}
-        </div>
+        </button>
         <StatusBadge value={project.status} />
       </header>
 
@@ -3326,7 +3389,7 @@ function PortfolioProjectCard({
         <div className="pf-pay">
           <div className="pf-pay-head">
             <span>Payment stages</span>
-            {billed ? <strong>{billed}% billable</strong> : null}
+            {collected ? <strong>{collected}% collected</strong> : null}
           </div>
           {editingTerms ? (
             <PortfolioTermsEditor
@@ -3339,40 +3402,27 @@ function PortfolioProjectCard({
             />
           ) : hasPaymentTerms(project) ? (
             <ul className="pf-pay-list">
-              {PAYMENT_MILESTONES.map((milestone) => {
-                const entry = terms[milestone.id];
-                if (!entry.percent) return null;
-                const invoiced = Boolean(entry.invoicedAt);
+              {getActiveMilestones(project).map((milestone) => {
+                const state = getStageState(project, milestone.id);
                 return (
-                  <li className={`pf-pay-row${entry.reached ? " is-reached" : ""}`} key={milestone.id}>
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={entry.reached}
-                        disabled={!canMarkMilestones}
-                        onChange={(event) =>
-                          onToggleMilestone(project.id, milestone.id, event.target.checked)
-                        }
-                      />
+                  <li
+                    className={`pf-pay-row${state === STAGE_STATE.paid ? " is-reached" : ""}`}
+                    key={milestone.id}
+                  >
+                    <span className="pf-pay-label">
                       <span className="pf-pay-name">{milestone.label}</span>
-                      <span className="pf-pay-percent">{entry.percent}%</span>
-                    </label>
-                    {invoiced ? (
-                      <Badge tone="success">Invoiced</Badge>
-                    ) : entry.reached ? (
-                      <Badge tone="warning">Awaiting invoice</Badge>
-                    ) : null}
+                      <span className="pf-pay-percent">{terms[milestone.id].percent}%</span>
+                    </span>
+                    <Badge tone={STAGE_STATE_TONE[state]}>{STAGE_STATE_LABEL[state]}</Badge>
                   </li>
                 );
               })}
             </ul>
-          ) : canManageTerms ? (
+          ) : (
             <button className="pf-terms-set" type="button" onClick={() => setEditingTerms(true)}>
               <Plus size={13} aria-hidden="true" />
               Set payment terms
             </button>
-          ) : (
-            <p className="pf-pay-empty">No payment terms recorded yet.</p>
           )}
 
           {!editingTerms && hasPaymentTerms(project) && canManageTerms ? (
@@ -3402,15 +3452,11 @@ function PortfolioProjectCard({
         </button>
       ) : null}
 
-      {onOpenWorkspace ? (
-        <button className="pf-open-ws" type="button" onClick={() => onOpenWorkspace(project.id)}>
-          <Paperclip size={14} aria-hidden="true" />
-          Workspace
-          {getProjectFiles(project).length ? (
-            <span className="pf-ws-count">{getProjectFiles(project).length}</span>
-          ) : null}
-        </button>
-      ) : null}
+      <button className="pf-open-ws" type="button" onClick={() => onOpenProject(project.id)}>
+        <FileText size={14} aria-hidden="true" />
+        Open project
+        {documentCount ? <span className="pf-ws-count">{documentCount}</span> : null}
+      </button>
 
       {canEditStatus ? (
         <label className="pf-card-control">
@@ -3575,53 +3621,467 @@ function PortfolioNewProjectForm({ stageId, teamLabel, canSetPaymentTerms, onCan
 
 // Administration's working queue: every stage the PM has confirmed that still
 // needs an invoice raised.
-function PortfolioInvoiceQueue({ projects, onRaiseInvoice }) {
-  const pending = getPendingInvoices(projects);
+// Administration's queue: every invoiced stage still waiting for the client's
+// money. A row appears the moment the PM uploads a stage invoice.
+function PortfolioPaymentsQueue({ projects, onOpenProject }) {
+  const due = getPaymentsToCollect(projects);
 
   return (
     <section className="pf-invoices">
       <header className="pf-invoices-head">
         <span className="pf-invoices-title">
           <FileText size={17} aria-hidden="true" />
-          Invoices to raise
+          Payments to collect
         </span>
-        <Badge tone={pending.length ? "warning" : "success"}>{pending.length}</Badge>
+        <Badge tone={due.length ? "warning" : "success"}>{due.length}</Badge>
       </header>
 
-      {pending.length ? (
+      {due.length ? (
         <ul className="pf-invoices-list">
-          {pending.map(({ project, milestone, entry }) => (
+          {due.map(({ project, milestone, percent, invoice }) => (
             <li className="pf-invoice-row" key={`${project.id}-${milestone.id}`}>
               <div>
                 <strong>{project.name}</strong>
                 <small>
-                  {milestone.label} · {entry.percent}% ·{" "}
-                  {project.client || "client not recorded"}
+                  {milestone.label} · {percent}% · {project.client || "client not recorded"}
                 </small>
-                {entry.reachedBy ? (
+                {invoice ? (
                   <small>
-                    Confirmed by {entry.reachedBy}
-                    {entry.reachedAt ? ` on ${String(entry.reachedAt).slice(0, 10)}` : ""}
+                    Invoice uploaded
+                    {invoice.uploadedBy ? ` by ${invoice.uploadedBy}` : ""}
+                    {invoice.uploadedAt ? ` on ${String(invoice.uploadedAt).slice(0, 10)}` : ""}
                   </small>
                 ) : null}
               </div>
               <button
                 className="primary-button compact-button"
                 type="button"
-                onClick={() => onRaiseInvoice(project.id, milestone.id)}
+                onClick={() => onOpenProject(project.id)}
               >
-                <Download size={14} aria-hidden="true" />
-                Invoice template
+                Open project
               </button>
             </li>
           ))}
         </ul>
       ) : (
         <p className="pf-invoices-empty">
-          Nothing waiting. A row appears here the moment the PM confirms a payment stage.
+          Nothing to collect. A row appears here as soon as the PM uploads a stage invoice.
         </p>
       )}
     </section>
+  );
+}
+
+// While a page with drop zones is open, a file dropped just outside a zone
+// would make the browser open it in place of the app. Swallow those.
+function useSwallowStrayDrops(active) {
+  useEffect(() => {
+    if (!active) return undefined;
+    const stop = (event) => {
+      if (event.dataTransfer?.types?.includes("Files")) event.preventDefault();
+    };
+    window.addEventListener("dragover", stop);
+    window.addEventListener("drop", stop);
+    return () => {
+      window.removeEventListener("dragover", stop);
+      window.removeEventListener("drop", stop);
+    };
+  }, [active]);
+}
+
+// A drop zone that accepts files by drag-and-drop or click.
+function FileDropZone({ busy, multiple = false, label, onFiles }) {
+  const [dragging, setDragging] = useState(false);
+  return (
+    <label
+      className={`ws-drop${busy ? " is-busy" : ""}${dragging ? " is-dragging" : ""}`}
+      onDragEnter={(event) => {
+        if (!event.dataTransfer?.types?.includes("Files")) return;
+        event.preventDefault();
+        if (!busy) setDragging(true);
+      }}
+      onDragOver={(event) => {
+        if (!event.dataTransfer?.types?.includes("Files")) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = busy ? "none" : "copy";
+      }}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setDragging(false);
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        setDragging(false);
+        if (!busy) onFiles(event.dataTransfer?.files);
+      }}
+    >
+      <input
+        type="file"
+        multiple={multiple}
+        disabled={busy}
+        onChange={(event) => {
+          onFiles(event.target.files);
+          event.target.value = "";
+        }}
+      />
+      <Upload size={18} aria-hidden="true" />
+      <span>{busy ? "Uploading…" : dragging ? "Drop to upload" : label}</span>
+      <small>Up to {formatFileSize(MAX_FILE_BYTES)} per file</small>
+    </label>
+  );
+}
+
+function FileRow({ file, canRemove, busy, onRemove, onReplace }) {
+  return (
+    <div className="ws-file">
+      <div>
+        <strong>{file.name}</strong>
+        <small>
+          {formatFileSize(file.size)}
+          {file.uploadedBy ? ` · ${file.uploadedBy}` : ""}
+          {file.uploadedAt ? ` · ${String(file.uploadedAt).slice(0, 10)}` : ""}
+        </small>
+      </div>
+      <div className="ws-file-actions">
+        <button className="mini-action" type="button" onClick={() => openProjectFile(file)}>
+          <Download size={14} aria-hidden="true" />
+          Open
+        </button>
+        {onReplace ? (
+          <label className={`mini-action pp-replace${busy ? " is-busy" : ""}`}>
+            <input
+              type="file"
+              disabled={busy}
+              onChange={(event) => {
+                onReplace(event.target.files);
+                event.target.value = "";
+              }}
+            />
+            <Upload size={14} aria-hidden="true" />
+            Replace
+          </label>
+        ) : null}
+        {canRemove ? (
+          <button
+            className="danger-button compact-button"
+            type="button"
+            aria-label={`Remove ${file.name}`}
+            disabled={busy}
+            onClick={() => onRemove(file)}
+          >
+            <Trash2 size={14} aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// One document slot: a single proposal, invoice or transfer proof.
+function DocumentSlot({ title, file, canUpload, locked, emptyText, dropLabel, onUpload, onRemove }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const editable = canUpload && !locked;
+
+  async function upload(fileList) {
+    const chosen = Array.from(fileList || [])[0];
+    if (!chosen) return;
+    setBusy(true);
+    setError("");
+    const result = await onUpload(chosen);
+    if (!result?.ok) setError(result?.message || "Upload failed.");
+    setBusy(false);
+  }
+
+  async function remove(target) {
+    if (!window.confirm(`Remove "${target.name}"?`)) return;
+    setBusy(true);
+    setError("");
+    const result = await onRemove(target);
+    if (!result?.ok) setError(result?.message || "Could not remove the file.");
+    setBusy(false);
+  }
+
+  return (
+    <div className="pp-slot">
+      <span className="pp-slot-title">{title}</span>
+      {file ? (
+        <FileRow
+          file={file}
+          busy={busy}
+          canRemove={editable}
+          onRemove={remove}
+          onReplace={editable ? upload : null}
+        />
+      ) : editable ? (
+        <FileDropZone busy={busy} label={dropLabel} onFiles={upload} />
+      ) : (
+        <p className="pp-slot-empty">{emptyText}</p>
+      )}
+      {error ? <p className="pp-slot-error">{error}</p> : null}
+    </div>
+  );
+}
+
+function PortfolioProjectPage({
+  project,
+  employees,
+  canManageTerms,
+  canManageBillingDocs,
+  canRecordPayments,
+  canManageProjectFiles,
+  onBack,
+  onAttach,
+  onDetach,
+  onSetPaid,
+  onUpdateTerms,
+}) {
+  const [editingTerms, setEditingTerms] = useState(false);
+  const [paidError, setPaidError] = useState({});
+  const [docsBusy, setDocsBusy] = useState(false);
+  const [docsMessage, setDocsMessage] = useState(null);
+  useSwallowStrayDrops(canManageBillingDocs || canRecordPayments || canManageProjectFiles);
+
+  const manager = employees.find((employee) => employee.id === project.managerId);
+  const terms = getPaymentTerms(project);
+  const milestones = getActiveMilestones(project);
+  const collected = getCollectedPercent(project);
+  const fullyPaid = isFullyPaid(project);
+  const otherFiles = getOtherFiles(project);
+
+  async function uploadOthers(fileList) {
+    const chosen = Array.from(fileList || []);
+    if (!chosen.length) return;
+    setDocsBusy(true);
+    setDocsMessage(null);
+    for (const file of chosen) {
+      const result = await onAttach(project.id, file, { kind: FILE_KINDS.other });
+      if (!result.ok) {
+        setDocsMessage({ tone: "error", text: result.message });
+        setDocsBusy(false);
+        return;
+      }
+    }
+    setDocsMessage({
+      tone: "success",
+      text: chosen.length === 1 ? `"${chosen[0].name}" uploaded.` : `${chosen.length} files uploaded.`,
+    });
+    setDocsBusy(false);
+  }
+
+  async function removeOther(file) {
+    if (!window.confirm(`Remove "${file.name}" from this project?`)) return;
+    setDocsBusy(true);
+    const result = await onDetach(project.id, file);
+    setDocsMessage({ tone: result.ok ? "success" : "error", text: result.message });
+    setDocsBusy(false);
+  }
+
+  function togglePaid(milestoneId, paid) {
+    const result = onSetPaid(project.id, milestoneId, paid);
+    setPaidError((current) => ({ ...current, [milestoneId]: result?.ok ? "" : result?.message || "" }));
+  }
+
+  return (
+    <div className="pp-page">
+      <button className="pd-back pp-back" type="button" onClick={onBack}>
+        <ChevronLeft size={16} aria-hidden="true" />
+        All projects
+      </button>
+
+      <header className="pp-head">
+        <div className="pp-head-title">
+          <small>{project.id}</small>
+          <h3>{project.name || "Untitled project"}</h3>
+          <div className="pp-head-tags">
+            {project.teamLabel ? <span className="pf-team-tag">{project.teamLabel}</span> : null}
+            {project.client ? <span className="pp-client">{project.client}</span> : null}
+            <span className="pp-client">{manager?.name || "Unassigned"}</span>
+          </div>
+        </div>
+        <StatusBadge value={project.status} />
+      </header>
+
+      {hasPaymentTerms(project) ? (
+        <div className="pp-collected">
+          <div className="pp-collected-head">
+            <span>Collected from the client</span>
+          </div>
+          <ProgressBar value={collected} />
+        </div>
+      ) : null}
+
+      {fullyPaid ? (
+        <div className="pp-banner">
+          <CheckCircle2 size={18} aria-hidden="true" />
+          Every payment stage is paid. This project has moved to Historical.
+        </div>
+      ) : null}
+
+      <section className="pp-section">
+        <header className="pp-section-head">
+          <span className="pp-step">1</span>
+          <h4>Financial proposal</h4>
+        </header>
+        <DocumentSlot
+          title="Proposal"
+          file={getProposalFile(project)}
+          canUpload={canManageBillingDocs}
+          emptyText="No financial proposal uploaded yet."
+          dropLabel="Drag the financial proposal here, or click to choose"
+          onUpload={(file) => onAttach(project.id, file, { kind: FILE_KINDS.proposal })}
+          onRemove={(file) => onDetach(project.id, file)}
+        />
+      </section>
+
+      <section className="pp-section">
+        <header className="pp-section-head">
+          <span className="pp-step">2</span>
+          <h4>Payment stages</h4>
+          {hasPaymentTerms(project) && canManageTerms && !editingTerms ? (
+            <button className="pf-terms-edit pp-edit-terms" type="button" onClick={() => setEditingTerms(true)}>
+              Edit terms
+            </button>
+          ) : null}
+        </header>
+
+        {editingTerms ? (
+          <PortfolioTermsEditor
+            project={project}
+            onCancel={() => setEditingTerms(false)}
+            onSave={(percents) => {
+              onUpdateTerms(project.id, percents);
+              setEditingTerms(false);
+            }}
+          />
+        ) : !milestones.length ? (
+          canManageTerms ? (
+            <button className="pf-terms-set" type="button" onClick={() => setEditingTerms(true)}>
+              <Plus size={13} aria-hidden="true" />
+              Set payment terms
+            </button>
+          ) : (
+            <p className="pp-slot-empty">No payment terms recorded yet.</p>
+          )
+        ) : (
+          <div className="pp-stages">
+            {milestones.map((milestone) => {
+              const entry = terms[milestone.id];
+              const state = getStageState(project, milestone.id);
+              const invoice = getStageFile(project, milestone.id, FILE_KINDS.invoice);
+              const proof = getStageFile(project, milestone.id, FILE_KINDS.proof);
+              const paid = state === STAGE_STATE.paid;
+              return (
+                <article className={`pp-stage${paid ? " is-paid" : ""}`} key={milestone.id}>
+                  <header className="pp-stage-head">
+                    <div>
+                      <strong>{milestone.label}</strong>
+                      <span>{entry.percent}% of the contract</span>
+                    </div>
+                    <Badge tone={STAGE_STATE_TONE[state]}>{STAGE_STATE_LABEL[state]}</Badge>
+                  </header>
+
+                  <div className="pp-stage-docs">
+                    <DocumentSlot
+                      title="Invoice"
+                      file={invoice}
+                      canUpload={canManageBillingDocs}
+                      locked={paid}
+                      emptyText="The PM uploads the invoice for this stage."
+                      dropLabel={`Drag the ${milestone.label.toLowerCase()} invoice here`}
+                      onUpload={(file) =>
+                        onAttach(project.id, file, { kind: FILE_KINDS.invoice, milestone: milestone.id })
+                      }
+                      onRemove={(file) => onDetach(project.id, file)}
+                    />
+                    <DocumentSlot
+                      title="Transfer proof"
+                      file={proof}
+                      canUpload={canRecordPayments && Boolean(invoice)}
+                      locked={paid}
+                      emptyText={
+                        invoice
+                          ? "Administration uploads the client's transfer proof."
+                          : "Waiting for the invoice."
+                      }
+                      dropLabel="Drag the transfer proof here"
+                      onUpload={(file) =>
+                        onAttach(project.id, file, { kind: FILE_KINDS.proof, milestone: milestone.id })
+                      }
+                      onRemove={(file) => onDetach(project.id, file)}
+                    />
+                  </div>
+
+                  <footer className="pp-stage-foot">
+                    <label className={`pp-paid${!canRecordPayments ? " is-readonly" : ""}`}>
+                      <input
+                        type="checkbox"
+                        checked={paid}
+                        disabled={!canRecordPayments || (!paid && (!invoice || !proof))}
+                        onChange={(event) => togglePaid(milestone.id, event.target.checked)}
+                      />
+                      <span>
+                        {paid
+                          ? `Paid${entry.paidBy ? ` · confirmed by ${entry.paidBy}` : ""}${
+                              entry.paidAt ? ` on ${String(entry.paidAt).slice(0, 10)}` : ""
+                            }`
+                          : canRecordPayments
+                            ? invoice && proof
+                              ? "Mark as paid"
+                              : "Mark as paid — needs the invoice and the transfer proof"
+                            : "Not paid yet"}
+                      </span>
+                    </label>
+                    {paidError[milestone.id] ? (
+                      <p className="pp-slot-error">{paidError[milestone.id]}</p>
+                    ) : null}
+                  </footer>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <section className="pp-section">
+        <header className="pp-section-head">
+          <span className="pp-step">3</span>
+          <h4>Other documents</h4>
+          <Badge tone="neutral">{otherFiles.length}</Badge>
+        </header>
+        {canManageProjectFiles ? (
+          <FileDropZone
+            busy={docsBusy}
+            multiple
+            label="Drag drawings, contracts or any project file here, or click to choose"
+            onFiles={uploadOthers}
+          />
+        ) : null}
+        {docsMessage ? (
+          <div
+            className={`management-message ${
+              docsMessage.tone === "error" ? "management-message-error" : "success-notice"
+            }`}
+          >
+            {docsMessage.text}
+          </div>
+        ) : null}
+        {otherFiles.length ? (
+          <div className="ws-file-list">
+            {otherFiles.map((file) => (
+              <FileRow
+                key={file.path}
+                file={file}
+                busy={docsBusy}
+                canRemove={canManageProjectFiles}
+                onRemove={removeOther}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="pp-slot-empty">No other documents yet.</p>
+        )}
+      </section>
+    </div>
   );
 }
 
@@ -3635,17 +4095,20 @@ function PortfolioDashboard({
   onCreateProject,
   canAddProject,
   canSetPaymentTerms,
-  canMarkMilestones,
-  canRaiseInvoices,
-  onToggleMilestone,
-  onRaiseInvoice,
+  canManageBillingDocs,
+  canRecordPayments,
+  canManageProjectFiles,
+  onAttachFile,
+  onDetachFile,
+  onSetStagePaid,
   onUpdateTerms,
   canDeleteProject,
   onDeleteProject,
-  onOpenWorkspace,
   onPrint,
 }) {
   const [activeStage, setActiveStage] = useState("current");
+  const [openProjectId, setOpenProjectId] = useState("");
+  const openProject = openProjectId ? projects.find((item) => item.id === openProjectId) : null;
   const [activeDept, setActiveDept] = useState("all");
   const [addingProject, setAddingProject] = useState(false);
 
@@ -3702,6 +4165,26 @@ function PortfolioDashboard({
         </div>
       </header>
 
+      {openProject ? (
+        <PortfolioProjectPage
+          project={openProject}
+          employees={employees}
+          canManageTerms={canSetPaymentTerms}
+          canManageBillingDocs={canManageBillingDocs}
+          canRecordPayments={canRecordPayments}
+          canManageProjectFiles={canManageProjectFiles}
+          onAttach={onAttachFile}
+          onDetach={onDetachFile}
+          onSetPaid={onSetStagePaid}
+          onUpdateTerms={onUpdateTerms}
+          onBack={() => {
+            // Land on the tab the project now belongs to — a project that was
+            // just fully paid has moved to Historical.
+            setActiveStage(getPortfolioStageId(openProject.status));
+            setOpenProjectId("");
+          }}
+        />
+      ) : (
       <div className="pf-body">
         <nav className="pf-depts" aria-label="Departments">
           <span className="pf-depts-heading">Departments</span>
@@ -3723,8 +4206,8 @@ function PortfolioDashboard({
         </nav>
 
         <div className="pf-main">
-          {canRaiseInvoices ? (
-            <PortfolioInvoiceQueue projects={projects} onRaiseInvoice={onRaiseInvoice} />
+          {canRecordPayments ? (
+            <PortfolioPaymentsQueue projects={projects} onOpenProject={setOpenProjectId} />
           ) : null}
 
           <div className="pf-tabs" role="tablist" aria-label="Project stages">
@@ -3781,13 +4264,11 @@ function PortfolioDashboard({
                     employees={employees}
                     canEditStatus={canEditStatus}
                     onChangeStage={onChangeStage}
-                    canMarkMilestones={canMarkMilestones}
-                    onToggleMilestone={onToggleMilestone}
                     canManageTerms={canSetPaymentTerms}
                     onUpdateTerms={onUpdateTerms}
                     canDeleteProject={canDeleteProject}
                     onDeleteProject={onDeleteProject}
-                    onOpenWorkspace={onOpenWorkspace}
+                    onOpenProject={setOpenProjectId}
                   />
                 ))}
               </div>
@@ -3801,6 +4282,7 @@ function PortfolioDashboard({
           </section>
         </div>
       </div>
+      )}
     </div>
   );
 }
@@ -5053,224 +5535,6 @@ function ReviewQueuePage({ tasks, projects, employees, currentUser, onReviewTask
 }
 
 // The per-project document workspace Administration opens from the board.
-function ProjectWorkspaceModal({ project, canManageFiles, onAttach, onDetach, onClose }) {
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState(null);
-  const [dragging, setDragging] = useState(false);
-
-  // While the workspace is open, a file dropped anywhere other than the drop
-  // zone would make the browser open it in place of the app. Swallow those.
-  useEffect(() => {
-    if (!project || !canManageFiles) return undefined;
-    const stop = (event) => {
-      if (event.dataTransfer?.types?.includes("Files")) event.preventDefault();
-    };
-    window.addEventListener("dragover", stop);
-    window.addEventListener("drop", stop);
-    return () => {
-      window.removeEventListener("dragover", stop);
-      window.removeEventListener("drop", stop);
-    };
-  }, [project, canManageFiles]);
-
-  if (!project) return null;
-
-  const files = getProjectFiles(project);
-  const terms = getPaymentTerms(project);
-
-  async function handleFiles(fileList) {
-    const chosen = Array.from(fileList || []);
-    if (!chosen.length) return;
-    setBusy(true);
-    setMessage(null);
-    for (const file of chosen) {
-      const result = await onAttach(project.id, file);
-      if (!result.ok) {
-        setMessage({ tone: "error", text: result.message });
-        setBusy(false);
-        return;
-      }
-    }
-    setMessage({
-      tone: "success",
-      text: chosen.length === 1 ? `"${chosen[0].name}" uploaded.` : `${chosen.length} files uploaded.`,
-    });
-    setBusy(false);
-  }
-
-  async function handleRemove(file) {
-    if (!window.confirm(`Remove "${file.name}" from this project?`)) return;
-    setBusy(true);
-    const result = await onDetach(project.id, file);
-    setMessage(result.ok ? { tone: "success", text: result.message } : { tone: "error", text: result.message });
-    setBusy(false);
-  }
-
-  return (
-    <div className="modal-backdrop" role="presentation">
-      <section className="confirm-modal panel ws-modal" aria-label="Project workspace">
-        <div className="modal-title-row">
-          <div>
-            <span className="eyebrow">{project.id} · Project workspace</span>
-            <h3>{project.name}</h3>
-          </div>
-          <button className="icon-button" type="button" aria-label="Close workspace" onClick={onClose}>
-            <X size={18} aria-hidden="true" />
-          </button>
-        </div>
-
-        <div className="ws-summary">
-          <div>
-            <span>Client</span>
-            <strong>{project.client || "Not recorded"}</strong>
-          </div>
-          <div>
-            <span>Team</span>
-            <strong>{project.teamLabel || "Unassigned"}</strong>
-          </div>
-          <div>
-            <span>Stage</span>
-            <strong>{project.status}</strong>
-          </div>
-          <div>
-            <span>Billable so far</span>
-            <strong>{getBilledPercent(project)}%</strong>
-          </div>
-        </div>
-
-        {hasPaymentTerms(project) ? (
-          <div className="ws-terms">
-            {PAYMENT_MILESTONES.filter((m) => terms[m.id].percent > 0).map((milestone) => {
-              const entry = terms[milestone.id];
-              return (
-                <span className="ws-term" key={milestone.id}>
-                  {milestone.label} {entry.percent}%
-                  {entry.invoicedAt ? (
-                    <Badge tone="success">Invoiced</Badge>
-                  ) : entry.reached ? (
-                    <Badge tone="warning">Awaiting invoice</Badge>
-                  ) : (
-                    <Badge tone="neutral">Not reached</Badge>
-                  )}
-                </span>
-              );
-            })}
-          </div>
-        ) : null}
-
-        <div className="ws-files">
-          <header className="ws-files-head">
-            <span>
-              <Paperclip size={16} aria-hidden="true" />
-              Documents
-            </span>
-            <Badge tone="neutral">{files.length}</Badge>
-          </header>
-
-          {canManageFiles ? (
-            <label
-              className={`ws-drop${busy ? " is-busy" : ""}${dragging ? " is-dragging" : ""}`}
-              onDragEnter={(event) => {
-                if (!event.dataTransfer?.types?.includes("Files")) return;
-                event.preventDefault();
-                if (!busy) setDragging(true);
-              }}
-              onDragOver={(event) => {
-                if (!event.dataTransfer?.types?.includes("Files")) return;
-                event.preventDefault();
-                event.dataTransfer.dropEffect = busy ? "none" : "copy";
-              }}
-              onDragLeave={(event) => {
-                // Moving across the icon or text fires dragleave too; only
-                // clear the highlight once the pointer has really left the box.
-                if (!event.currentTarget.contains(event.relatedTarget)) setDragging(false);
-              }}
-              onDrop={(event) => {
-                event.preventDefault();
-                setDragging(false);
-                if (!busy) handleFiles(event.dataTransfer?.files);
-              }}
-            >
-              <input
-                type="file"
-                multiple
-                disabled={busy}
-                onChange={(event) => {
-                  handleFiles(event.target.files);
-                  event.target.value = "";
-                }}
-              />
-              <Upload size={18} aria-hidden="true" />
-              <span>
-                {busy
-                  ? "Uploading…"
-                  : dragging
-                    ? "Drop to upload"
-                    : "Drag files here, or click to choose — invoices, proposals, any project document"}
-              </span>
-              <small>Up to {formatFileSize(MAX_FILE_BYTES)} per file</small>
-            </label>
-          ) : null}
-
-          {message ? (
-            <div
-              className={`management-message ${
-                message.tone === "error" ? "management-message-error" : "success-notice"
-              }`}
-            >
-              {message.text}
-            </div>
-          ) : null}
-
-          {files.length ? (
-            <ul className="ws-file-list">
-              {files.map((file) => (
-                <li className="ws-file" key={file.path}>
-                  <div>
-                    <strong>{file.name}</strong>
-                    <small>
-                      {formatFileSize(file.size)}
-                      {file.uploadedBy ? ` · ${file.uploadedBy}` : ""}
-                      {file.uploadedAt ? ` · ${String(file.uploadedAt).slice(0, 10)}` : ""}
-                    </small>
-                  </div>
-                  <div className="ws-file-actions">
-                    <button className="mini-action" type="button" onClick={() => openProjectFile(file)}>
-                      <Download size={14} aria-hidden="true" />
-                      Open
-                    </button>
-                    {canManageFiles ? (
-                      <button
-                        className="danger-button compact-button"
-                        type="button"
-                        disabled={busy}
-                        onClick={() => handleRemove(file)}
-                      >
-                        <Trash2 size={14} aria-hidden="true" />
-                      </button>
-                    ) : null}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="ws-empty">
-              No documents yet.
-              {canManageFiles ? " Upload the financial proposal to get started." : ""}
-            </p>
-          )}
-        </div>
-
-        <div className="modal-actions">
-          <button className="secondary-button" type="button" onClick={onClose}>
-            Close
-          </button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
 const MIN_PASSWORD_LENGTH = 8;
 
 function ChangePasswordModal({ currentUser, onClose, onSubmit }) {

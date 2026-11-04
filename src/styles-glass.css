@@ -616,7 +616,7 @@
     .pf-card, .pf-pay-row, .pf-dept, .pf-tab, .pf-invoices, .pf-invoice-row,
     .pf-open-ws, .pf-terms-set, .pf-terms-edit, .pf-delete-project,
     .pf-print-button, .pf-add-button, .ws-summary, .ws-term, .ws-file,
-    .ws-drop, .sidebar-user, .nav-list button, .mini-action,
+    .ws-drop, .pp-stage, .pp-collected, .pd-back, .sidebar-user, .nav-list button, .mini-action,
     .secondary-button, .primary-button
   ) {
     position: relative;
@@ -633,7 +633,7 @@
     .pf-card, .pf-pay-row, .pf-dept, .pf-tab, .pf-invoices, .pf-invoice-row,
     .pf-open-ws, .pf-terms-set, .pf-terms-edit, .pf-delete-project,
     .pf-print-button, .pf-add-button, .ws-summary, .ws-term, .ws-file,
-    .ws-drop, .sidebar-user, .nav-list button, .mini-action,
+    .ws-drop, .pp-stage, .pp-collected, .pd-back, .sidebar-user, .nav-list button, .mini-action,
     .secondary-button, .primary-button
   )::before {
     content: "";
@@ -656,7 +656,7 @@
   /* the rim catching the same light */
   .theme-glass :is(
     .pf-card, .pf-pay-row, .pf-dept, .pf-tab, .pf-invoices, .pf-invoice-row,
-    .pf-open-ws, .ws-summary, .ws-term, .ws-file, .ws-drop, .sidebar-user,
+    .pf-open-ws, .ws-summary, .ws-term, .ws-file, .ws-drop, .pp-stage, .pp-collected, .sidebar-user,
     .nav-list button
   )::after {
     content: "";
@@ -685,12 +685,12 @@
     .pf-card, .pf-pay-row, .pf-dept, .pf-tab, .pf-invoices, .pf-invoice-row,
     .pf-open-ws, .pf-terms-set, .pf-terms-edit, .pf-delete-project,
     .pf-print-button, .pf-add-button, .ws-summary, .ws-term, .ws-file,
-    .ws-drop, .sidebar-user, .nav-list button, .mini-action,
+    .ws-drop, .pp-stage, .pp-collected, .pd-back, .sidebar-user, .nav-list button, .mini-action,
     .secondary-button, .primary-button
   ):hover::before,
   .theme-glass :is(
     .pf-card, .pf-pay-row, .pf-dept, .pf-tab, .pf-invoices, .pf-invoice-row,
-    .pf-open-ws, .ws-summary, .ws-term, .ws-file, .ws-drop, .sidebar-user,
+    .pf-open-ws, .ws-summary, .ws-term, .ws-file, .ws-drop, .pp-stage, .pp-collected, .sidebar-user,
     .nav-list button
   ):hover::after {
     opacity: 1;
@@ -869,5 +869,108 @@
   .theme-glass .pf-pay-head {
     font-size: 11px;
     letter-spacing: 0.12em;
+  }
+}
+
+/* --- Portfolio project page in the glass theme -------------------------- */
+@media screen {
+  .theme-glass .pd-back {
+    color: var(--ink);
+    border-color: var(--glass-edge);
+    background: rgba(255, 255, 255, 0.07);
+  }
+
+  .theme-glass .pd-back:hover {
+    background: rgba(255, 255, 255, 0.14);
+  }
+
+  .theme-glass .pp-head-title small {
+    color: #ecd06a;
+  }
+
+  .theme-glass .pp-head-title h3 {
+    color: #fffaf0;
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+
+  .theme-glass .pp-client {
+    color: rgba(245, 241, 232, 0.82);
+  }
+
+  .theme-glass .pp-collected,
+  .theme-glass .pp-stage {
+    border-color: var(--glass-edge);
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03));
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    box-shadow: var(--shadow), var(--glass-shine);
+  }
+
+  .theme-glass .pp-stage {
+    border-radius: 18px;
+  }
+
+  .theme-glass .pp-stage.is-paid {
+    border-color: rgba(52, 211, 153, 0.45);
+    background: linear-gradient(145deg, rgba(16, 185, 129, 0.16), rgba(255, 255, 255, 0.03));
+  }
+
+  .theme-glass .pp-collected-head,
+  .theme-glass .pp-stage-head span,
+  .theme-glass .pp-slot-title {
+    color: rgba(245, 241, 232, 0.66);
+  }
+
+  .theme-glass .pp-collected-head strong {
+    color: #6ee7b7;
+  }
+
+  .theme-glass .pp-stage-head strong,
+  .theme-glass .pp-section-head h4 {
+    color: #fffaf0;
+  }
+
+  .theme-glass .pp-stage-foot {
+    border-top-color: var(--glass-edge);
+  }
+
+  .theme-glass .pp-paid {
+    color: var(--ink);
+  }
+
+  .theme-glass .pp-paid input {
+    accent-color: #34d399;
+  }
+
+  .theme-glass .pp-slot-empty {
+    border-color: rgba(255, 255, 255, 0.16);
+    color: var(--muted);
+  }
+
+  .theme-glass .pp-slot-error {
+    color: #fca5a5;
+  }
+
+  .theme-glass .pp-banner {
+    color: #a7f3d0;
+    border-color: rgba(52, 211, 153, 0.4);
+    background: rgba(16, 185, 129, 0.16);
+  }
+
+  .theme-glass .pp-step {
+    background: linear-gradient(140deg, #e6c65a, var(--gold-deep));
+    box-shadow: 0 4px 14px rgba(201, 169, 58, 0.35);
+  }
+
+  .theme-glass .danger-button {
+    color: #fca5a5;
+    border-color: rgba(248, 113, 113, 0.32);
+    background: rgba(239, 68, 68, 0.12);
+  }
+
+  .theme-glass .pp-stage:hover {
+    border-color: rgba(217, 184, 74, 0.38);
   }
 }
