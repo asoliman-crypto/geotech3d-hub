@@ -20,6 +20,7 @@ import {
   FolderKanban,
   GanttChartSquare,
   KeyRound,
+  Landmark,
   LayoutDashboard,
   Link2,
   ListChecks,
@@ -179,6 +180,7 @@ import geoBrandLogo from "./assets/brand/geotech3d-logo-full.svg";
 const navItems = [
   { id: "home", label: "My Day", icon: Sparkles },
   { id: "portfolio", label: "Portfolio Status", icon: TrendingUp },
+  { id: "finance", label: "Finance", icon: Landmark },
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "report", label: "Daily Report", icon: FileText },
   { id: "insights", label: "Reports", icon: BarChart3 },
@@ -2763,16 +2765,6 @@ export default function App() {
           </button>
         </section>
 
-        {capabilities.isPortfolioAccount && !sidebarCollapsed ? (
-          <PortfolioFinancePanel
-            projects={roleScopedProjects}
-            onOpenProject={(projectId) => {
-              setActiveView("portfolio");
-              setPortfolioProjectId(projectId);
-            }}
-          />
-        ) : null}
-
         <div className="sidebar-bottom-actions">
           {/* Available to every role, including the portfolio accounts whose
               only view is the status board — everyone must be able to secure
@@ -2845,6 +2837,16 @@ export default function App() {
             isTaskLocked={isTaskLockedForCurrentUser}
             onNavigate={setActiveView}
             onOpenProject={openProject}
+          />
+        )}
+
+        {activeView === "finance" && canAccessView(currentUser, "finance") && (
+          <PortfolioFinanceView
+            projects={roleScopedProjects}
+            onOpenProject={(projectId) => {
+              setPortfolioProjectId(projectId);
+              setActiveView("portfolio");
+            }}
           />
         )}
 
@@ -4273,19 +4275,16 @@ function PortfolioProjectPage({
   );
 }
 
-// A compact money view for the sidebar: what is still to come in from the
-// projects in delivery, and how much of it is invoiced and due right now.
-// Amounts are kept per currency — dirhams and riyals are never added together.
-function PortfolioFinancePanel({ projects, onOpenProject }) {
-  const live = projects.filter(
-    (project) => getPortfolioStageId(project.status) === "current" && getContractValue(project) > 0,
-  );
-  const unvalued = projects.filter(
-    (project) => getPortfolioStageId(project.status) === "current" && !getContractValue(project),
-  ).length;
+// The money in the projects currently in delivery, per currency: what the
+// contracts are worth, what has come in, what is invoiced and due, and what
+// is still to collect. Dirhams and riyals are never added together.
+function summariseFinance(projects) {
+  const live = projects.filter((project) => getPortfolioStageId(project.status) === "current");
+  const valued = live.filter((project) => getContractValue(project) > 0);
+  const unvalued = live.filter((project) => !getContractValue(project));
 
-  const totals = {};
-  const rows = live.map((project) => {
+  const groups = {};
+  for (const project of valued) {
     const currency = getCurrency(project);
     const value = getContractValue(project);
     const collected = getCollectedAmount(project);
@@ -4293,58 +4292,138 @@ function PortfolioFinancePanel({ projects, onOpenProject }) {
       .filter((m) => getStageState(project, m.id) === STAGE_STATE.paymentDue)
       .reduce((sum, m) => sum + getStageAmount(project, m.id), 0);
     const remaining = Math.max(0, value - collected);
-    const t = (totals[currency] ||= { value: 0, remaining: 0, due: 0 });
-    t.value += value;
-    t.remaining += remaining;
-    t.due += due;
-    return { project, currency, remaining, due };
-  });
-  rows.sort((a, b) => b.remaining - a.remaining);
-  const currencies = CURRENCIES.map((c) => c.code).filter((code) => totals[code]);
+    const group = (groups[currency] ||= { value: 0, collected: 0, due: 0, remaining: 0, rows: [] });
+    group.value += value;
+    group.collected += collected;
+    group.due += due;
+    group.remaining += remaining;
+    group.rows.push({ project, value, collected, due, remaining });
+  }
+  for (const group of Object.values(groups)) {
+    group.rows.sort((a, b) => b.remaining - a.remaining);
+  }
+  const currencies = CURRENCIES.map((c) => c.code).filter((code) => groups[code]);
+  return { groups, currencies, unvalued, liveCount: live.length };
+}
+
+function FinanceTile({ label, value, currency, tone, hint }) {
+  return (
+    <div className={`fd-tile${tone ? ` fd-tile-${tone}` : ""}`}>
+      <span className="fd-tile-label">{label}</span>
+      <strong className="fd-tile-value">{formatMoney(value, currency)}</strong>
+      {hint ? <small className="fd-tile-hint">{hint}</small> : null}
+    </div>
+  );
+}
+
+function PortfolioFinanceView({ projects, onOpenProject }) {
+  const { groups, currencies, unvalued, liveCount } = summariseFinance(projects);
 
   return (
-    <section className="fin-panel" aria-label="Money still to collect">
-      <header className="fin-head">
-        <span>Still to collect</span>
-        <small>Projects in delivery</small>
+    <div className="fd-board">
+      <header className="fd-head">
+        <div>
+          <span className="pf-board-kicker">Finance</span>
+          <h2>Money in delivery</h2>
+          <p>
+            {liveCount} project{liveCount === 1 ? "" : "s"} in delivery · amounts follow the contract value
+            and payment stages of each project
+          </p>
+        </div>
       </header>
 
-      {currencies.length ? (
-        currencies.map((code) => (
-          <div className="fin-total" key={code}>
-            <strong>{formatMoney(totals[code].remaining, code)}</strong>
-            <span>of {formatMoney(totals[code].value, code)}</span>
-            {totals[code].due ? (
-              <span className="fin-due">Due now {formatMoney(totals[code].due, code)}</span>
-            ) : null}
-          </div>
-        ))
-      ) : (
-        <p className="fin-empty">Add a contract value to a project in delivery to see it here.</p>
-      )}
+      {!currencies.length ? (
+        <div className="fd-empty">
+          <strong>No contract values yet</strong>
+          <p>Open a project in delivery and add its contract value — the figures appear here straight away.</p>
+        </div>
+      ) : null}
 
-      {rows.length ? (
-        <ul className="fin-list">
-          {rows.map(({ project, currency, remaining, due }) => (
-            <li key={project.id}>
-              <button type="button" onClick={() => onOpenProject(project.id)} title={project.name}>
-                <span className="fin-name">{project.name}</span>
-                <span className="fin-amount">
-                  {formatMoney(remaining, currency, { compact: true })}
-                  {due ? <i className="fin-dot" title="Invoice issued, payment due" /> : null}
-                </span>
+      {currencies.map((code) => {
+        const g = groups[code];
+        const notInvoiced = Math.max(0, g.value - g.collected - g.due);
+        const pct = (part) => (g.value ? `${(part / g.value) * 100}%` : "0%");
+        const share = (part) => (g.value ? Math.round((part / g.value) * 100) : 0);
+        return (
+          <section className="fd-currency" key={code}>
+            <header className="fd-currency-head">
+              <h3>{CURRENCIES.find((c) => c.code === code)?.label || code}</h3>
+              <span>{g.rows.length} project{g.rows.length === 1 ? "" : "s"}</span>
+            </header>
+
+            <div className="fd-tiles">
+              <FinanceTile label="Contract value" value={g.value} currency={code} />
+              <FinanceTile label="Collected" value={g.collected} currency={code} tone="good" hint={`${share(g.collected)}% of the value`} />
+              <FinanceTile label="Due now" value={g.due} currency={code} tone="due" hint="Invoiced, awaiting transfer" />
+              <FinanceTile label="Still to collect" value={g.remaining} currency={code} tone="gold" hint={`${share(g.remaining)}% of the value`} />
+            </div>
+
+            <div className="fd-split" aria-label="How the contract value splits">
+              <div className="fd-split-bar">
+                <span className="fd-seg fd-seg-collected" style={{ width: pct(g.collected) }} />
+                <span className="fd-seg fd-seg-due" style={{ width: pct(g.due) }} />
+                <span className="fd-seg fd-seg-open" style={{ width: pct(notInvoiced) }} />
+              </div>
+              <div className="fd-legend">
+                <span><i className="fd-key fd-seg-collected" />Collected {share(g.collected)}%</span>
+                <span><i className="fd-key fd-seg-due" />Due now {share(g.due)}%</span>
+                <span><i className="fd-key fd-seg-open" />Not invoiced yet {share(notInvoiced)}%</span>
+              </div>
+            </div>
+
+            <div className="fd-table-wrap">
+              <table className="fd-table">
+                <thead>
+                  <tr>
+                    <th>Project</th>
+                    <th>Contract</th>
+                    <th>Collected</th>
+                    <th>Due now</th>
+                    <th>Still to collect</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {g.rows.map(({ project, value, collected, due, remaining }) => (
+                    <tr key={project.id}>
+                      <td>
+                        <button className="fd-project" type="button" onClick={() => onOpenProject(project.id)}>
+                          <small>{project.id}</small>
+                          <span>{project.name}</span>
+                        </button>
+                        <div className="fd-row-bar">
+                          <span style={{ width: value ? `${(collected / value) * 100}%` : "0%" }} />
+                        </div>
+                      </td>
+                      <td>{formatMoney(value, code)}</td>
+                      <td className="fd-good">{collected ? formatMoney(collected, code) : "—"}</td>
+                      <td className="fd-due">{due ? formatMoney(due, code) : "—"}</td>
+                      <td className="fd-gold">{formatMoney(remaining, code)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        );
+      })}
+
+      {unvalued.length ? (
+        <section className="fd-unvalued">
+          <header className="fd-currency-head">
+            <h3>Without a contract value</h3>
+            <span>{unvalued.length}</span>
+          </header>
+          <div className="fd-chips">
+            {unvalued.map((project) => (
+              <button key={project.id} type="button" className="fd-chip" onClick={() => onOpenProject(project.id)}>
+                {project.name}
+                <span>Add value</span>
               </button>
-            </li>
-          ))}
-        </ul>
+            ))}
+          </div>
+        </section>
       ) : null}
-
-      {unvalued ? (
-        <p className="fin-note">
-          {unvalued} project{unvalued === 1 ? "" : "s"} in delivery without a contract value
-        </p>
-      ) : null}
-    </section>
+    </div>
   );
 }
 
