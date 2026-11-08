@@ -616,7 +616,7 @@
     .pf-card, .pf-pay-row, .pf-dept, .pf-tab, .pf-invoices, .pf-invoice-row,
     .pf-open-ws, .pf-terms-set, .pf-terms-edit, .pf-delete-project,
     .pf-print-button, .pf-add-button, .ws-summary, .ws-term, .ws-file,
-    .ws-drop, .pp-stage, .pp-collected, .pd-back, .fd-part, .fd-chip, .sidebar-user, .nav-list button, .mini-action,
+    .ws-drop, .pp-stage, .pp-collected, .pd-back, .fd-stage, .fd-chip, .sidebar-user, .nav-list button, .mini-action,
     .secondary-button, .primary-button
   ) {
     position: relative;
@@ -633,7 +633,7 @@
     .pf-card, .pf-pay-row, .pf-dept, .pf-tab, .pf-invoices, .pf-invoice-row,
     .pf-open-ws, .pf-terms-set, .pf-terms-edit, .pf-delete-project,
     .pf-print-button, .pf-add-button, .ws-summary, .ws-term, .ws-file,
-    .ws-drop, .pp-stage, .pp-collected, .pd-back, .fd-part, .fd-chip, .sidebar-user, .nav-list button, .mini-action,
+    .ws-drop, .pp-stage, .pp-collected, .pd-back, .fd-stage, .fd-chip, .sidebar-user, .nav-list button, .mini-action,
     .secondary-button, .primary-button
   )::before {
     content: "";
@@ -656,7 +656,7 @@
   /* the rim catching the same light */
   .theme-glass :is(
     .pf-card, .pf-pay-row, .pf-dept, .pf-tab, .pf-invoices, .pf-invoice-row,
-    .pf-open-ws, .ws-summary, .ws-term, .ws-file, .ws-drop, .pp-stage, .pp-collected, .fd-part, .fd-chip, .sidebar-user,
+    .pf-open-ws, .ws-summary, .ws-term, .ws-file, .ws-drop, .pp-stage, .pp-collected, .fd-stage, .fd-chip, .sidebar-user,
     .nav-list button
   )::after {
     content: "";
@@ -685,12 +685,12 @@
     .pf-card, .pf-pay-row, .pf-dept, .pf-tab, .pf-invoices, .pf-invoice-row,
     .pf-open-ws, .pf-terms-set, .pf-terms-edit, .pf-delete-project,
     .pf-print-button, .pf-add-button, .ws-summary, .ws-term, .ws-file,
-    .ws-drop, .pp-stage, .pp-collected, .pd-back, .fd-part, .fd-chip, .sidebar-user, .nav-list button, .mini-action,
+    .ws-drop, .pp-stage, .pp-collected, .pd-back, .fd-stage, .fd-chip, .sidebar-user, .nav-list button, .mini-action,
     .secondary-button, .primary-button
   ):hover::before,
   .theme-glass :is(
     .pf-card, .pf-pay-row, .pf-dept, .pf-tab, .pf-invoices, .pf-invoice-row,
-    .pf-open-ws, .ws-summary, .ws-term, .ws-file, .ws-drop, .pp-stage, .pp-collected, .fd-part, .fd-chip, .sidebar-user,
+    .pf-open-ws, .ws-summary, .ws-term, .ws-file, .ws-drop, .pp-stage, .pp-collected, .fd-stage, .fd-chip, .sidebar-user,
     .nav-list button
   ):hover::after {
     opacity: 1;
@@ -1053,8 +1053,11 @@
 
   .theme-glass .fd-head h2,
   .theme-glass .fd-currency-name,
-  .theme-glass .fd-follow h4,
-  .theme-glass .fd-unvalued h4 {
+  .theme-glass .fd-stage-head h4,
+  .theme-glass .fd-unvalued h4,
+  .theme-glass .fd-stage-total strong,
+  .theme-glass .fd-stage-amount strong,
+  .theme-glass .fd-legend b {
     color: #fffaf0;
   }
 
@@ -1065,9 +1068,7 @@
     box-shadow: var(--glass-shine);
   }
 
-  .theme-glass .fd-hero-label,
-  .theme-glass .fd-part-label,
-  .theme-glass .fd-table th {
+  .theme-glass .fd-hero-label {
     color: rgba(245, 241, 232, 0.66);
   }
 
@@ -1076,90 +1077,62 @@
     text-shadow: 0 2px 24px rgba(217, 184, 74, 0.3);
   }
 
-  .theme-glass .fd-hero-of {
-    color: rgba(245, 241, 232, 0.8);
+  .theme-glass .fd-hero-of,
+  .theme-glass .fd-legend,
+  .theme-glass .fd-stage-total span,
+  .theme-glass .fd-stage-head small,
+  .theme-glass .fd-stage-part dt {
+    color: rgba(245, 241, 232, 0.74);
   }
 
   .theme-glass .fd-bar {
     background: rgba(255, 255, 255, 0.1);
   }
 
-  .theme-glass .fd-part,
-  .theme-glass .fd-table-wrap,
+  .theme-glass .fd-stage,
   .theme-glass .fd-chip {
     border-color: var(--glass-edge);
     background: linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03));
     box-shadow: var(--glass-shine);
   }
 
-  .theme-glass .fd-part {
-    border-radius: 18px;
+  .theme-glass .fd-stage {
+    border-radius: 20px;
   }
 
-  .theme-glass .fd-part-received { border-left-color: var(--fd-received); }
-  .theme-glass .fd-part-waiting { border-left-color: var(--fd-waiting); }
-  .theme-glass .fd-part-later { border-left-color: var(--fd-later); }
-
-  .theme-glass .fd-part strong {
-    color: #fffaf0;
+  .theme-glass .fd-stage-step {
+    background: linear-gradient(140deg, #e6c65a, var(--gold-deep));
+    box-shadow: 0 4px 14px rgba(201, 169, 58, 0.35);
   }
 
-  .theme-glass .fd-part-received strong,
-  .theme-glass .fd-received { color: var(--fd-received); }
-
-  .theme-glass .fd-part-waiting strong,
-  .theme-glass .fd-waiting,
-  .theme-glass .fd-follow button strong { color: var(--fd-waiting); }
-
-  .theme-glass .fd-later {
-    color: rgba(245, 241, 232, 0.72);
+  .theme-glass .fd-stage-parts {
+    border-color: rgba(255, 255, 255, 0.1);
   }
 
-  .theme-glass .fd-follow {
-    border-color: rgba(251, 191, 36, 0.4);
-    border-radius: 18px;
-    background: linear-gradient(145deg, rgba(251, 191, 36, 0.12), rgba(255, 255, 255, 0.02));
-  }
+  .theme-glass .fd-received dd { color: var(--fd-received); }
+  .theme-glass .fd-waiting dd { color: var(--fd-waiting); }
+  .theme-glass .fd-later dd { color: rgba(245, 241, 232, 0.72); }
 
-  .theme-glass .fd-follow button {
+  .theme-glass .fd-stage-list button {
     border-color: var(--glass-edge);
     background: rgba(0, 0, 0, 0.18);
     color: var(--ink);
   }
 
-  .theme-glass .fd-follow button:hover {
+  .theme-glass .fd-stage-list button:hover {
     background: rgba(255, 255, 255, 0.08);
   }
 
-  .theme-glass .fd-follow-stage {
-    color: rgba(245, 241, 232, 0.72);
-  }
-
-  .theme-glass .fd-follow-name small,
-  .theme-glass .fd-project small {
+  .theme-glass .fd-stage-project small {
     color: #ecd06a;
   }
 
-  .theme-glass .fd-project span,
-  .theme-glass .fd-follow-name {
+  .theme-glass .fd-stage-project span {
     color: #fffaf0;
   }
 
-  .theme-glass .fd-table th,
-  .theme-glass .fd-table td {
-    border-bottom-color: rgba(255, 255, 255, 0.1);
-  }
-
-  .theme-glass .fd-table td {
-    color: var(--ink);
-  }
-
-  .theme-glass .fd-table tbody tr:hover td {
-    background: rgba(255, 255, 255, 0.05);
-  }
-
-  .theme-glass .fd-table tfoot td {
-    background: rgba(255, 255, 255, 0.04);
+  .theme-glass .fd-stage-empty {
+    color: var(--muted);
   }
 
   .theme-glass .fd-chip {

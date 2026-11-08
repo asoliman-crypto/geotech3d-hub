@@ -23,7 +23,7 @@ export const GLASS_SURFACES = [
   ".ws-file",
   ".ws-drop",
   ".pp-stage",
-  ".fd-part",
+  ".fd-stage",
   ".fd-chip",
   ".pp-collected",
   ".pd-back",

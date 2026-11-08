@@ -6017,7 +6017,7 @@ a {
 }
 
 /* ---------------------------------------------------------------------------
-   Finance mini-dashboard
+   Finance mini-dashboard — by payment stage
    Three colours mean the same thing everywhere on the page:
    green = received, amber = waiting for payment, grey = not invoiced yet.
    --------------------------------------------------------------------------- */
@@ -6054,7 +6054,7 @@ a {
   font-size: 16px;
 }
 
-/* 1 — headline */
+/* headline */
 .fd-hero {
   display: grid;
   gap: 6px;
@@ -6094,7 +6094,21 @@ a {
   margin-top: 10px;
 }
 
-/* the split bar, used big in the headline and thin under each project */
+.fd-legend {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.fd-legend b {
+  color: var(--ink);
+}
+
+/* split bar */
 .fd-bar {
   display: flex;
   height: 14px;
@@ -6104,8 +6118,7 @@ a {
 }
 
 .fd-bar-thin {
-  height: 5px;
-  margin-top: 7px;
+  height: 6px;
 }
 
 .fd-bar > span {
@@ -6124,85 +6137,110 @@ a {
   height: 9px;
   margin-right: 6px;
   border-radius: 3px;
-  vertical-align: baseline;
 }
 
-/* 2 — the three parts */
-.fd-parts {
+/* the three stage columns */
+.fd-stages {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
+  align-items: start;
 }
 
-.fd-part {
-  position: relative;
+.fd-stage {
   display: grid;
-  gap: 4px;
+  gap: 12px;
   min-width: 0;
-  padding: 14px 16px;
+  padding: 16px;
   border: 1px solid var(--border);
-  border-left-width: 4px;
-  border-radius: 14px;
+  border-radius: 16px;
   background: #f8fafc;
 }
 
-.fd-part-received { border-left-color: var(--fd-received); }
-.fd-part-waiting { border-left-color: var(--fd-waiting); }
-.fd-part-later { border-left-color: var(--fd-later); }
-
-.fd-part-step {
-  position: absolute;
-  top: 12px;
-  right: 14px;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 800;
-  opacity: 0.6;
+.fd-stage-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.fd-part-label {
-  display: inline-flex;
-  align-items: center;
+.fd-stage-step {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--geo-gold);
+  color: #1a1610;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.fd-stage-head h4 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.fd-stage-head small {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
 }
 
-.fd-part strong {
+.fd-stage-total {
+  display: grid;
+  gap: 2px;
+}
+
+.fd-stage-total strong {
   overflow: hidden;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 800;
+  letter-spacing: -0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.fd-part-received strong { color: var(--fd-received); }
-.fd-part-waiting strong { color: var(--fd-waiting); }
-
-.fd-part small {
+.fd-stage-total span {
   color: var(--muted);
   font-size: 12px;
+  font-weight: 600;
 }
 
-/* 3 — follow-ups */
-.fd-follow {
+.fd-stage-parts {
   display: grid;
-  gap: 8px;
-  padding: 14px 16px;
-  border: 1px solid rgba(217, 119, 6, 0.35);
-  border-radius: 14px;
-  background: rgba(217, 119, 6, 0.06);
-}
-
-.fd-follow h4,
-.fd-unvalued h4 {
+  gap: 4px;
   margin: 0;
-  font-size: 14px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
-.fd-follow ul {
+.fd-stage-part {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.fd-stage-part dt {
+  display: inline-flex;
+  align-items: center;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.fd-stage-part dd {
+  margin: 0;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.fd-received dd { color: var(--fd-received); }
+.fd-waiting dd { color: var(--fd-waiting); }
+.fd-later dd { color: var(--muted); }
+
+.fd-stage-list {
   display: grid;
   gap: 6px;
   margin: 0;
@@ -6210,13 +6248,11 @@ a {
   list-style: none;
 }
 
-.fd-follow button {
+.fd-stage-list button {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 14px;
+  gap: 6px;
   width: 100%;
-  padding: 9px 12px;
+  padding: 9px 10px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: #ffffff;
@@ -6226,110 +6262,50 @@ a {
   cursor: pointer;
 }
 
-.fd-follow-name {
+.fd-stage-project {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   min-width: 0;
-  font-weight: 800;
 }
 
-.fd-follow-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.fd-follow-name small,
-.fd-project small {
+.fd-stage-project small {
   color: var(--amber);
   font-size: 11px;
   font-weight: 800;
 }
 
-.fd-follow-stage {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.fd-follow button strong {
-  color: var(--fd-waiting);
-  font-size: 15px;
-  white-space: nowrap;
-}
-
-/* 4 — project table */
-.fd-table-wrap {
-  width: 100%;
-  overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-}
-
-.fd-table {
-  width: 100%;
-  min-width: 700px;
-  border-collapse: collapse;
+.fd-stage-project span {
+  overflow: hidden;
   font-size: 13px;
-}
-
-.fd-table th {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.06em;
-  text-align: left;
-  text-transform: uppercase;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.fd-table td {
-  padding: 11px 12px;
-  border-bottom: 1px solid var(--border);
-  font-weight: 700;
-  white-space: nowrap;
-  vertical-align: middle;
-}
-
-.fd-table td:first-child {
-  width: 40%;
-  white-space: normal;
-}
-
-.fd-table tfoot td {
-  border-bottom: 0;
-  font-weight: 800;
-}
-
-.fd-project {
-  display: grid;
-  gap: 1px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.fd-project span {
-  font-weight: 800;
-}
-
-.fd-project:hover span,
-.fd-follow button:hover .fd-follow-name {
+.fd-stage-list button:hover .fd-stage-project span {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
-.fd-received { color: var(--fd-received); }
-.fd-waiting { color: var(--fd-waiting); }
-.fd-later { color: var(--muted); }
+.fd-stage-amount {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
 
+.fd-stage-amount strong {
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.fd-stage-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* empty state and projects missing a value */
 .fd-empty {
   padding: 18px;
   border: 1px dashed var(--border);
@@ -6345,6 +6321,11 @@ a {
 .fd-unvalued {
   display: grid;
   gap: 10px;
+}
+
+.fd-unvalued h4 {
+  margin: 0;
+  font-size: 14px;
 }
 
 .fd-chips {
@@ -6372,26 +6353,19 @@ a {
   font-size: 11px;
 }
 
-@media (max-width: 820px) {
+@media (max-width: 980px) {
+  .fd-stages {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
   .fd-board {
     padding: 14px;
   }
 
-  .fd-parts {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .fd-hero-value {
     font-size: 28px;
-  }
-
-  .fd-follow button {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .fd-follow-stage {
-    grid-column: 1 / -1;
-    grid-row: 2;
   }
 }
 

@@ -4292,46 +4292,53 @@ function PortfolioProjectPage({
   );
 }
 
-// The money in the projects currently in delivery, per currency. Every
-// contract splits into three parts that never overlap and always add up to
-// its value: received, invoiced and waiting for payment, not invoiced yet.
+// The money in the projects currently in delivery, laid out by payment
+// stage: Mobilization, Delivery, Approval. Each stage shows what it is worth
+// across the projects, how much of it is received, waiting for payment or
+// not invoiced yet, and every project in it with its status.
 // Dirhams and riyals are never added together.
 function summariseFinance(projects) {
   const live = projects.filter((project) => getPortfolioStageId(project.status) === "current");
   const valued = live.filter((project) => getContractValue(project) > 0);
   const unvalued = live.filter((project) => !getContractValue(project));
 
+  const blankParts = () => ({ total: 0, received: 0, waiting: 0, notInvoiced: 0 });
   const groups = {};
   for (const project of valued) {
     const currency = getCurrency(project);
-    const value = getContractValue(project);
-    const received = getCollectedAmount(project);
-    const waitingStages = getActiveMilestones(project)
-      .filter((m) => getStageState(project, m.id) === STAGE_STATE.paymentDue)
-      .map((m) => ({ label: m.label, amount: getStageAmount(project, m.id) }));
-    const waiting = waitingStages.reduce((sum, stage) => sum + stage.amount, 0);
-    const notInvoiced = Math.max(0, value - received - waiting);
     const group = (groups[currency] ||= {
-      value: 0, received: 0, waiting: 0, notInvoiced: 0, rows: [],
+      ...blankParts(),
+      stages: Object.fromEntries(PAYMENT_MILESTONES.map((m) => [m.id, { ...blankParts(), rows: [] }])),
     });
-    group.value += value;
-    group.received += received;
-    group.waiting += waiting;
-    group.notInvoiced += notInvoiced;
-    group.rows.push({ project, value, received, waiting, notInvoiced, waitingStages });
+    for (const milestone of getActiveMilestones(project)) {
+      const amount = getStageAmount(project, milestone.id);
+      const state = getStageState(project, milestone.id);
+      const part =
+        state === STAGE_STATE.paid ? "received" : state === STAGE_STATE.paymentDue ? "waiting" : "notInvoiced";
+      const stage = group.stages[milestone.id];
+      stage.total += amount;
+      stage[part] += amount;
+      stage.rows.push({ project, amount, state });
+      group.total += amount;
+      group[part] += amount;
+    }
   }
+  // Inside a stage: money waiting on the client first, then what is still to
+  // invoice, then what is already in.
+  const order = { [STAGE_STATE.paymentDue]: 0, [STAGE_STATE.awaitingInvoice]: 1, [STAGE_STATE.paid]: 2 };
   for (const group of Object.values(groups)) {
-    // Money waiting on the client first, then the largest balance.
-    group.rows.sort((a, b) => b.waiting - a.waiting || b.value - b.received - (a.value - a.received));
+    for (const stage of Object.values(group.stages)) {
+      stage.rows.sort((a, b) => order[a.state] - order[b.state] || b.amount - a.amount);
+    }
   }
   const currencies = CURRENCIES.map((c) => c.code).filter((code) => groups[code]);
   return { groups, currencies, unvalued, liveCount: live.length };
 }
 
 const FINANCE_PARTS = [
-  { key: "received", label: "Received", hint: "Paid by the client", tone: "received" },
-  { key: "waiting", label: "Waiting for payment", hint: "Invoice sent, not paid yet", tone: "waiting" },
-  { key: "notInvoiced", label: "Not invoiced yet", hint: "Stages still to come", tone: "later" },
+  { key: "received", label: "Received", tone: "received" },
+  { key: "waiting", label: "Waiting for payment", tone: "waiting" },
+  { key: "notInvoiced", label: "Not invoiced yet", tone: "later" },
 ];
 
 function FinanceSplitBar({ parts, total, thin = false }) {
@@ -4358,7 +4365,7 @@ function PortfolioFinanceView({ projects, onOpenProject }) {
         <span className="pf-board-kicker">Finance</span>
         <h2>Money in delivery</h2>
         <p>
-          {liveCount} project{liveCount === 1 ? "" : "s"} in progress
+          {liveCount} project{liveCount === 1 ? "" : "s"} in progress, by payment stage
         </p>
       </header>
 
@@ -4372,103 +4379,87 @@ function PortfolioFinanceView({ projects, onOpenProject }) {
       {currencies.map((code) => {
         const g = groups[code];
         const outstanding = g.waiting + g.notInvoiced;
-        const followUps = g.rows.filter((row) => row.waiting > 0);
         return (
           <section className="fd-currency" key={code}>
             {currencies.length > 1 ? (
               <h3 className="fd-currency-name">{CURRENCIES.find((c) => c.code === code)?.label || code}</h3>
             ) : null}
 
-            {/* 1 — the answer in one line */}
             <div className="fd-hero">
               <span className="fd-hero-label">Still to collect</span>
               <strong className="fd-hero-value">{formatMoney(outstanding, code)}</strong>
               <span className="fd-hero-of">
-                out of {formatMoney(g.value, code)} in contracts ·{" "}
-                <b>{percentOf(g.received, g.value)}% received so far</b>
+                out of {formatMoney(g.total, code)} in total ·{" "}
+                <b>{percentOf(g.received, g.total)}% received so far</b>
               </span>
-              <FinanceSplitBar parts={g} total={g.value} />
-            </div>
-
-            {/* 2 — where every dirham is, left to right as the money moves */}
-            <div className="fd-parts">
-              {FINANCE_PARTS.map((part, index) => (
-                <div className={`fd-part fd-part-${part.tone}`} key={part.key}>
-                  <span className="fd-part-step">{index + 1}</span>
-                  <span className="fd-part-label">
+              <FinanceSplitBar parts={g} total={g.total} />
+              <div className="fd-legend">
+                {FINANCE_PARTS.map((part) => (
+                  <span key={part.key}>
                     <i className={`fd-dot fd-bar-${part.tone}`} />
-                    {part.label}
+                    {part.label} <b>{formatMoney(g[part.key], code)}</b>
                   </span>
-                  <strong>{formatMoney(g[part.key], code)}</strong>
-                  <small>
-                    {part.hint} · {percentOf(g[part.key], g.value)}%
-                  </small>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
-            {/* 3 — what needs chasing */}
-            {followUps.length ? (
-              <div className="fd-follow">
-                <h4>Waiting for the client to pay</h4>
-                <ul>
-                  {followUps.map((row) => (
-                    <li key={row.project.id}>
-                      <button type="button" onClick={() => onOpenProject(row.project.id)}>
-                        <span className="fd-follow-name">
-                          <small>{row.project.id}</small>
-                          <span className="fd-follow-title">{row.project.name}</span>
-                        </span>
-                        <span className="fd-follow-stage">
-                          {row.waitingStages.map((stage) => stage.label).join(" + ")} invoice sent
-                        </span>
-                        <strong>{formatMoney(row.waiting, code)}</strong>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
+            <div className="fd-stages">
+              {PAYMENT_MILESTONES.map((milestone, index) => {
+                const stage = g.stages[milestone.id];
+                return (
+                  <article className="fd-stage" key={milestone.id}>
+                    <header className="fd-stage-head">
+                      <span className="fd-stage-step">{index + 1}</span>
+                      <div>
+                        <h4>{milestone.label}</h4>
+                        <small>{milestone.caption}</small>
+                      </div>
+                    </header>
 
-            {/* 4 — every project, same three parts, same colours */}
-            <div className="fd-table-wrap">
-              <table className="fd-table">
-                <thead>
-                  <tr>
-                    <th>Project</th>
-                    <th><i className="fd-dot fd-bar-received" />Received</th>
-                    <th><i className="fd-dot fd-bar-waiting" />Waiting</th>
-                    <th><i className="fd-dot fd-bar-later" />Not invoiced</th>
-                    <th>Contract</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {g.rows.map((row) => (
-                    <tr key={row.project.id}>
-                      <td>
-                        <button className="fd-project" type="button" onClick={() => onOpenProject(row.project.id)}>
-                          <small>{row.project.id}</small>
-                          <span>{row.project.name}</span>
-                        </button>
-                        <FinanceSplitBar parts={row} total={row.value} thin />
-                      </td>
-                      <td className="fd-received">{row.received ? formatMoney(row.received, code) : "—"}</td>
-                      <td className="fd-waiting">{row.waiting ? formatMoney(row.waiting, code) : "—"}</td>
-                      <td className="fd-later">{row.notInvoiced ? formatMoney(row.notInvoiced, code) : "—"}</td>
-                      <td className="fd-total">{formatMoney(row.value, code)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td>Total</td>
-                    <td className="fd-received">{formatMoney(g.received, code)}</td>
-                    <td className="fd-waiting">{formatMoney(g.waiting, code)}</td>
-                    <td className="fd-later">{formatMoney(g.notInvoiced, code)}</td>
-                    <td className="fd-total">{formatMoney(g.value, code)}</td>
-                  </tr>
-                </tfoot>
-              </table>
+                    <div className="fd-stage-total">
+                      <strong>{formatMoney(stage.total, code)}</strong>
+                      <span>
+                        {stage.rows.length} project{stage.rows.length === 1 ? "" : "s"} ·{" "}
+                        {percentOf(stage.received, stage.total)}% received
+                      </span>
+                    </div>
+                    <FinanceSplitBar parts={stage} total={stage.total} thin />
+
+                    <dl className="fd-stage-parts">
+                      {FINANCE_PARTS.map((part) => (
+                        <div key={part.key} className={`fd-stage-part fd-${part.tone}`}>
+                          <dt>
+                            <i className={`fd-dot fd-bar-${part.tone}`} />
+                            {part.label}
+                          </dt>
+                          <dd>{stage[part.key] ? formatMoney(stage[part.key], code) : "—"}</dd>
+                        </div>
+                      ))}
+                    </dl>
+
+                    {stage.rows.length ? (
+                      <ul className="fd-stage-list">
+                        {stage.rows.map(({ project, amount, state }) => (
+                          <li key={project.id}>
+                            <button type="button" onClick={() => onOpenProject(project.id)} title={project.name}>
+                              <span className="fd-stage-project">
+                                <small>{project.id}</small>
+                                <span>{project.name}</span>
+                              </span>
+                              <span className="fd-stage-amount">
+                                <strong>{formatMoney(amount, code)}</strong>
+                                <Badge tone={STAGE_STATE_TONE[state]}>{STAGE_STATE_LABEL[state]}</Badge>
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="fd-stage-empty">No project has this stage.</p>
+                    )}
+                  </article>
+                );
+              })}
             </div>
           </section>
         );
