@@ -974,3 +974,26 @@
     border-color: rgba(217, 184, 74, 0.38);
   }
 }
+
+/* Dropdown group headings (Pipeline / Current / Historical) need their own
+   dark background — otherwise the browser paints them white under the
+   theme's light text and they disappear. */
+@media screen {
+  .theme-glass select optgroup {
+    color: #ecd06a;
+    background: #2c2722;
+    font-weight: 800;
+    font-style: normal;
+  }
+
+  .theme-glass select option {
+    color: #f5f1e8;
+    background: #3b342c;
+    font-weight: 500;
+  }
+
+  .theme-glass select option:checked {
+    color: #1a1610;
+    background: #d9b84a;
+  }
+}
