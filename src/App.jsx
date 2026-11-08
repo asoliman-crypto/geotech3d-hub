@@ -161,7 +161,9 @@ import {
   getOtherFiles,
   getPaymentsToCollect,
   getProposalFile,
+  getProposalFiles,
   getStageFile,
+  getStageFiles,
   getStageState,
   isFullyPaid,
   getTermsTotal,
@@ -1896,8 +1898,7 @@ export default function App() {
   /**
    * Upload a document into a project slot.
    * slot = { kind: "proposal" | "invoice" | "proof" | "other", milestone? }
-   * Proposal, invoice and proof slots hold one file each, so a new upload
-   * replaces the previous one.
+   * Every slot holds as many documents as needed; a new upload is added.
    */
   async function attachProjectFile(projectId, file, slot = { kind: FILE_KINDS.other }) {
     const kind = FILE_KINDS[slot?.kind] ? slot.kind : FILE_KINDS.other;
@@ -1923,34 +1924,27 @@ export default function App() {
     if (!result.ok) return result;
     const stored = { ...result.file, kind, ...(milestoneId ? { milestone: milestoneId } : {}) };
 
-    // A single-file slot keeps only the newest upload.
-    const replaced =
-      kind === FILE_KINDS.proposal
-        ? getProposalFile(project)
-        : kind === FILE_KINDS.invoice || kind === FILE_KINDS.proof
-          ? getStageFile(project, milestoneId, kind)
-          : null;
+    // The first invoice of a stage is what puts its money on Administration's
+    // desk; later invoices for the same stage do not notify again.
+    const firstInvoice =
+      kind === FILE_KINDS.invoice && !getStageFile(project, milestoneId, FILE_KINDS.invoice);
 
     setProjects((current) =>
-      current.map((item) => {
-        if (item.id !== projectId) return item;
-        const kept = getProjectFiles(item).filter((entry) => !replaced || entry.path !== replaced.path);
-        return { ...item, files: [stored, ...kept] };
-      }),
+      current.map((item) =>
+        item.id === projectId ? { ...item, files: [stored, ...getProjectFiles(item)] } : item,
+      ),
     );
-    if (replaced) removeProjectFile(replaced);
 
     const label = FILE_KIND_LABEL[kind];
     const what = milestone ? `${milestone.label} ${label.toLowerCase()}` : label.toLowerCase();
     addAuditEvent(
       "project",
-      replaced ? `${label} replaced` : `${label} uploaded`,
+      `${label} uploaded`,
       `${currentUser.name} uploaded the ${what} "${file.name}" for ${project.name}.`,
       { relatedProjectId: projectId },
     );
 
-    // An invoice is what puts money on Administration's desk.
-    if (kind === FILE_KINDS.invoice && !replaced) {
+    if (firstInvoice) {
       const percent = getPaymentTerms(project)[milestoneId].percent;
       const share = percent ? ` (${percent}% of the contract)` : "";
       addNotification({
@@ -3788,11 +3782,13 @@ function useSwallowStrayDrops(active) {
 }
 
 // A drop zone that accepts files by drag-and-drop or click.
-function FileDropZone({ busy, multiple = false, label, onFiles }) {
+function FileDropZone({ busy, multiple = false, compact = false, label, onFiles }) {
   const [dragging, setDragging] = useState(false);
   return (
     <label
-      className={`ws-drop${busy ? " is-busy" : ""}${dragging ? " is-dragging" : ""}`}
+      className={`ws-drop${compact ? " ws-drop-compact" : ""}${busy ? " is-busy" : ""}${
+        dragging ? " is-dragging" : ""
+      }`}
       onDragEnter={(event) => {
         if (!event.dataTransfer?.types?.includes("Files")) return;
         event.preventDefault();
@@ -3823,12 +3819,12 @@ function FileDropZone({ busy, multiple = false, label, onFiles }) {
       />
       <Upload size={18} aria-hidden="true" />
       <span>{busy ? "Uploading…" : dragging ? "Drop to upload" : label}</span>
-      <small>Up to {formatFileSize(MAX_FILE_BYTES)} per file</small>
+      {compact ? null : <small>Up to {formatFileSize(MAX_FILE_BYTES)} per file</small>}
     </label>
   );
 }
 
-function FileRow({ file, canRemove, busy, onRemove, onReplace }) {
+function FileRow({ file, canRemove, busy, onRemove }) {
   return (
     <div className="ws-file">
       <div>
@@ -3844,20 +3840,6 @@ function FileRow({ file, canRemove, busy, onRemove, onReplace }) {
           <Download size={14} aria-hidden="true" />
           Open
         </button>
-        {onReplace ? (
-          <label className={`mini-action pp-replace${busy ? " is-busy" : ""}`}>
-            <input
-              type="file"
-              disabled={busy}
-              onChange={(event) => {
-                onReplace(event.target.files);
-                event.target.value = "";
-              }}
-            />
-            <Upload size={14} aria-hidden="true" />
-            Replace
-          </label>
-        ) : null}
         {canRemove ? (
           <button
             className="danger-button compact-button"
@@ -3874,48 +3856,66 @@ function FileRow({ file, canRemove, busy, onRemove, onReplace }) {
   );
 }
 
-// One document slot: a single proposal, invoice or transfer proof.
-function DocumentSlot({ title, file, canUpload, locked, emptyText, dropLabel, onUpload, onRemove }) {
+// One document slot (proposal, a stage invoice, a stage transfer proof).
+// Holds any number of files; drop several at once.
+function DocumentSlot({ title, files, canUpload, locked, emptyText, dropLabel, onUpload, onRemove }) {
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [message, setMessage] = useState(null);
   const editable = canUpload && !locked;
 
   async function upload(fileList) {
-    const chosen = Array.from(fileList || [])[0];
-    if (!chosen) return;
+    const chosen = Array.from(fileList || []);
+    if (!chosen.length) return;
     setBusy(true);
-    setError("");
-    const result = await onUpload(chosen);
-    if (!result?.ok) setError(result?.message || "Upload failed.");
+    setMessage(null);
+    for (const file of chosen) {
+      const result = await onUpload(file);
+      if (!result?.ok) {
+        setMessage({ tone: "error", text: result?.message || "Upload failed." });
+        setBusy(false);
+        return;
+      }
+    }
+    if (chosen.length > 1) setMessage({ tone: "success", text: `${chosen.length} files uploaded.` });
     setBusy(false);
   }
 
   async function remove(target) {
     if (!window.confirm(`Remove "${target.name}"?`)) return;
     setBusy(true);
-    setError("");
+    setMessage(null);
     const result = await onRemove(target);
-    if (!result?.ok) setError(result?.message || "Could not remove the file.");
+    if (!result?.ok) setMessage({ tone: "error", text: result?.message || "Could not remove the file." });
     setBusy(false);
   }
 
   return (
     <div className="pp-slot">
-      <span className="pp-slot-title">{title}</span>
-      {file ? (
-        <FileRow
-          file={file}
+      <span className="pp-slot-title">
+        {title}
+        {files.length > 1 ? <span className="pp-slot-count">{files.length}</span> : null}
+      </span>
+      {files.length ? (
+        <div className="pp-slot-files">
+          {files.map((file) => (
+            <FileRow key={file.path} file={file} busy={busy} canRemove={editable} onRemove={remove} />
+          ))}
+        </div>
+      ) : null}
+      {editable ? (
+        <FileDropZone
           busy={busy}
-          canRemove={editable}
-          onRemove={remove}
-          onReplace={editable ? upload : null}
+          multiple
+          compact={files.length > 0}
+          label={files.length ? "Add more files" : dropLabel}
+          onFiles={upload}
         />
-      ) : editable ? (
-        <FileDropZone busy={busy} label={dropLabel} onFiles={upload} />
-      ) : (
+      ) : !files.length ? (
         <p className="pp-slot-empty">{emptyText}</p>
-      )}
-      {error ? <p className="pp-slot-error">{error}</p> : null}
+      ) : null}
+      {message ? (
+        <p className={message.tone === "error" ? "pp-slot-error" : "pp-slot-ok"}>{message.text}</p>
+      ) : null}
     </div>
   );
 }
@@ -4109,10 +4109,10 @@ function PortfolioProjectPage({
         </header>
         <DocumentSlot
           title="Proposal"
-          file={getProposalFile(project)}
+          files={getProposalFiles(project)}
           canUpload={canManageBillingDocs}
           emptyText="No financial proposal uploaded yet."
-          dropLabel="Drag the financial proposal here, or click to choose"
+          dropLabel="Drag the financial proposal here, or click to choose — several files at once is fine"
           onUpload={(file) => onAttach(project.id, file, { kind: FILE_KINDS.proposal })}
           onRemove={(file) => onDetach(project.id, file)}
         />
@@ -4152,8 +4152,10 @@ function PortfolioProjectPage({
             {milestones.map((milestone) => {
               const entry = terms[milestone.id];
               const state = getStageState(project, milestone.id);
-              const invoice = getStageFile(project, milestone.id, FILE_KINDS.invoice);
-              const proof = getStageFile(project, milestone.id, FILE_KINDS.proof);
+              const invoices = getStageFiles(project, milestone.id, FILE_KINDS.invoice);
+              const proofs = getStageFiles(project, milestone.id, FILE_KINDS.proof);
+              const invoice = invoices[0] || null;
+              const proof = proofs[0] || null;
               const paid = state === STAGE_STATE.paid;
               return (
                 <article className={`pp-stage${paid ? " is-paid" : ""}`} key={milestone.id}>
@@ -4173,7 +4175,7 @@ function PortfolioProjectPage({
                   <div className="pp-stage-docs">
                     <DocumentSlot
                       title="Invoice"
-                      file={invoice}
+                      files={invoices}
                       canUpload={canManageBillingDocs}
                       locked={paid}
                       emptyText="The PM uploads the invoice for this stage."
@@ -4185,7 +4187,7 @@ function PortfolioProjectPage({
                     />
                     <DocumentSlot
                       title="Transfer proof"
-                      file={proof}
+                      files={proofs}
                       canUpload={canRecordPayments && Boolean(invoice)}
                       locked={paid}
                       emptyText={

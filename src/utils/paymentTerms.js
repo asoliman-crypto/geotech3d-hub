@@ -88,16 +88,29 @@ export function getKind(file) {
   return FILE_KINDS[file?.kind] ? file.kind : FILE_KINDS.other;
 }
 
+// Each slot can hold several documents (a proposal and its revisions, an
+// invoice split in parts, more than one transfer). Oldest first.
+const byUploadTime = (a, b) => String(a.uploadedAt || "").localeCompare(String(b.uploadedAt || ""));
+
+export function getProposalFiles(project) {
+  return getProjectFiles(project)
+    .filter((file) => getKind(file) === FILE_KINDS.proposal)
+    .sort(byUploadTime);
+}
+
+export function getStageFiles(project, milestoneId, kind) {
+  return getProjectFiles(project)
+    .filter((file) => getKind(file) === kind && file.milestone === milestoneId)
+    .sort(byUploadTime);
+}
+
+/** The first document in a slot, or null — used where only presence matters. */
 export function getProposalFile(project) {
-  return getProjectFiles(project).find((file) => getKind(file) === FILE_KINDS.proposal) || null;
+  return getProposalFiles(project)[0] || null;
 }
 
 export function getStageFile(project, milestoneId, kind) {
-  return (
-    getProjectFiles(project).find(
-      (file) => getKind(file) === kind && file.milestone === milestoneId,
-    ) || null
-  );
+  return getStageFiles(project, milestoneId, kind)[0] || null;
 }
 
 export function getOtherFiles(project) {

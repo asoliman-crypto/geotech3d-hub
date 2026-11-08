@@ -1131,3 +1131,13 @@
     border-color: rgba(255, 255, 255, 0.16);
   }
 }
+
+@media screen {
+  .theme-glass .pp-slot-ok {
+    color: #6ee7b7;
+  }
+
+  .theme-glass .pp-slot-count {
+    background: linear-gradient(140deg, #e6c65a, var(--gold-deep));
+  }
+}
