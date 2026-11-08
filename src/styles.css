@@ -6018,18 +6018,23 @@ a {
 
 /* ---------------------------------------------------------------------------
    Finance mini-dashboard
+   Three colours mean the same thing everywhere on the page:
+   green = received, amber = waiting for payment, grey = not invoiced yet.
    --------------------------------------------------------------------------- */
 .fd-board {
+  --fd-received: #0f8f72;
+  --fd-waiting: #d97706;
+  --fd-later: #94a3b8;
   display: grid;
-  gap: 18px;
-  padding: 22px;
+  gap: 20px;
+  padding: 24px;
   border: 1px solid var(--border);
   border-radius: 16px;
   background: #ffffff;
 }
 
 .fd-head h2 {
-  margin: 4px 0;
+  margin: 4px 0 2px;
   font-size: 24px;
 }
 
@@ -6039,116 +6044,222 @@ a {
   font-size: 13px;
 }
 
-.fd-currency,
-.fd-unvalued {
+.fd-currency {
   display: grid;
-  gap: 14px;
+  gap: 16px;
 }
 
-.fd-currency-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.fd-currency-head h3 {
-  margin: 0;
+.fd-currency-name {
+  margin: 6px 0 0;
   font-size: 16px;
 }
 
-.fd-currency-head span {
+/* 1 — headline */
+.fd-hero {
+  display: grid;
+  gap: 6px;
+  padding: 20px 22px;
+  border: 1px solid rgba(160, 132, 13, 0.4);
+  border-radius: 16px;
+  background: rgba(160, 132, 13, 0.06);
+}
+
+.fd-hero-label {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 700;
-}
-
-.fd-tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 12px;
-}
-
-.fd-tile {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: #f8fafc;
-}
-
-.fd-tile-label {
-  color: var(--muted);
-  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.fd-tile-value {
-  overflow: hidden;
-  font-size: 22px;
+.fd-hero-value {
+  color: var(--geo-gold-dark);
+  font-size: 36px;
   font-weight: 800;
-  letter-spacing: -0.01em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
 }
 
-.fd-tile-hint {
+.fd-hero-of {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
+  font-weight: 600;
 }
 
-.fd-tile-good .fd-tile-value { color: var(--green); }
-.fd-tile-due .fd-tile-value { color: var(--amber); }
-.fd-tile-gold .fd-tile-value { color: var(--geo-gold-dark); }
-
-.fd-split {
-  display: grid;
-  gap: 8px;
+.fd-hero-of b {
+  color: var(--fd-received);
 }
 
-.fd-split-bar {
+.fd-hero .fd-bar {
+  margin-top: 10px;
+}
+
+/* the split bar, used big in the headline and thin under each project */
+.fd-bar {
   display: flex;
-  height: 12px;
+  height: 14px;
   overflow: hidden;
   border-radius: 999px;
   background: #e2e8f0;
 }
 
-.fd-seg {
+.fd-bar-thin {
+  height: 5px;
+  margin-top: 7px;
+}
+
+.fd-bar > span {
   display: block;
   height: 100%;
   transition: width 0.4s ease;
 }
 
-.fd-seg-collected { background: var(--green); }
-.fd-seg-due { background: #f59e0b; }
-.fd-seg-open { background: #94a3b8; }
+.fd-bar-received { background: var(--fd-received); }
+.fd-bar-waiting { background: var(--fd-waiting); }
+.fd-bar-later { background: var(--fd-later); }
 
-.fd-legend {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
+.fd-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 6px;
+  border-radius: 3px;
+  vertical-align: baseline;
+}
+
+/* 2 — the three parts */
+.fd-parts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.fd-part {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.fd-part-received { border-left-color: var(--fd-received); }
+.fd-part-waiting { border-left-color: var(--fd-waiting); }
+.fd-part-later { border-left-color: var(--fd-later); }
+
+.fd-part-step {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  opacity: 0.6;
+}
+
+.fd-part-label {
+  display: inline-flex;
+  align-items: center;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.fd-part strong {
+  overflow: hidden;
+  font-size: 22px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fd-part-received strong { color: var(--fd-received); }
+.fd-part-waiting strong { color: var(--fd-waiting); }
+
+.fd-part small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* 3 — follow-ups */
+.fd-follow {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid rgba(217, 119, 6, 0.35);
+  border-radius: 14px;
+  background: rgba(217, 119, 6, 0.06);
+}
+
+.fd-follow h4,
+.fd-unvalued h4 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.fd-follow ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fd-follow button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #ffffff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fd-follow-name {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  font-weight: 800;
+}
+
+.fd-follow-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fd-follow-name small,
+.fd-project small {
+  color: var(--amber);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.fd-follow-stage {
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
-.fd-legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.fd-follow button strong {
+  color: var(--fd-waiting);
+  font-size: 15px;
+  white-space: nowrap;
 }
 
-.fd-key {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-}
-
+/* 4 — project table */
 .fd-table-wrap {
   width: 100%;
   overflow-x: auto;
@@ -6158,7 +6269,7 @@ a {
 
 .fd-table {
   width: 100%;
-  min-width: 680px;
+  min-width: 700px;
   border-collapse: collapse;
   font-size: 13px;
 }
@@ -6172,23 +6283,25 @@ a {
   letter-spacing: 0.06em;
   text-align: left;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .fd-table td {
-  padding: 10px 12px;
+  padding: 11px 12px;
   border-bottom: 1px solid var(--border);
   font-weight: 700;
   white-space: nowrap;
   vertical-align: middle;
 }
 
-.fd-table tr:last-child td {
-  border-bottom: 0;
-}
-
 .fd-table td:first-child {
   width: 40%;
   white-space: normal;
+}
+
+.fd-table tfoot td {
+  border-bottom: 0;
+  font-weight: 800;
 }
 
 .fd-project {
@@ -6203,38 +6316,19 @@ a {
   cursor: pointer;
 }
 
-.fd-project small {
-  color: var(--amber);
-  font-size: 11px;
-  font-weight: 800;
-}
-
 .fd-project span {
   font-weight: 800;
 }
 
-.fd-project:hover span {
+.fd-project:hover span,
+.fd-follow button:hover .fd-follow-name {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
-.fd-row-bar {
-  height: 4px;
-  margin-top: 6px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #e2e8f0;
-}
-
-.fd-row-bar span {
-  display: block;
-  height: 100%;
-  background: var(--green);
-}
-
-.fd-good { color: var(--green); }
-.fd-due { color: var(--amber); }
-.fd-gold { color: var(--geo-gold-dark); }
+.fd-received { color: var(--fd-received); }
+.fd-waiting { color: var(--fd-waiting); }
+.fd-later { color: var(--muted); }
 
 .fd-empty {
   padding: 18px;
@@ -6246,6 +6340,11 @@ a {
   margin: 4px 0 0;
   color: var(--muted);
   font-size: 13px;
+}
+
+.fd-unvalued {
+  display: grid;
+  gap: 10px;
 }
 
 .fd-chips {
@@ -6273,9 +6372,26 @@ a {
   font-size: 11px;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 820px) {
   .fd-board {
     padding: 14px;
+  }
+
+  .fd-parts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fd-hero-value {
+    font-size: 28px;
+  }
+
+  .fd-follow button {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .fd-follow-stage {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 }
 

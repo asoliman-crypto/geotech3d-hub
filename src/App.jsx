@@ -4292,9 +4292,10 @@ function PortfolioProjectPage({
   );
 }
 
-// The money in the projects currently in delivery, per currency: what the
-// contracts are worth, what has come in, what is invoiced and due, and what
-// is still to collect. Dirhams and riyals are never added together.
+// The money in the projects currently in delivery, per currency. Every
+// contract splits into three parts that never overlap and always add up to
+// its value: received, invoiced and waiting for payment, not invoiced yet.
+// Dirhams and riyals are never added together.
 function summariseFinance(projects) {
   const live = projects.filter((project) => getPortfolioStageId(project.status) === "current");
   const valued = live.filter((project) => getContractValue(project) > 0);
@@ -4304,120 +4305,169 @@ function summariseFinance(projects) {
   for (const project of valued) {
     const currency = getCurrency(project);
     const value = getContractValue(project);
-    const collected = getCollectedAmount(project);
-    const due = getActiveMilestones(project)
+    const received = getCollectedAmount(project);
+    const waitingStages = getActiveMilestones(project)
       .filter((m) => getStageState(project, m.id) === STAGE_STATE.paymentDue)
-      .reduce((sum, m) => sum + getStageAmount(project, m.id), 0);
-    const remaining = Math.max(0, value - collected);
-    const group = (groups[currency] ||= { value: 0, collected: 0, due: 0, remaining: 0, rows: [] });
+      .map((m) => ({ label: m.label, amount: getStageAmount(project, m.id) }));
+    const waiting = waitingStages.reduce((sum, stage) => sum + stage.amount, 0);
+    const notInvoiced = Math.max(0, value - received - waiting);
+    const group = (groups[currency] ||= {
+      value: 0, received: 0, waiting: 0, notInvoiced: 0, rows: [],
+    });
     group.value += value;
-    group.collected += collected;
-    group.due += due;
-    group.remaining += remaining;
-    group.rows.push({ project, value, collected, due, remaining });
+    group.received += received;
+    group.waiting += waiting;
+    group.notInvoiced += notInvoiced;
+    group.rows.push({ project, value, received, waiting, notInvoiced, waitingStages });
   }
   for (const group of Object.values(groups)) {
-    group.rows.sort((a, b) => b.remaining - a.remaining);
+    // Money waiting on the client first, then the largest balance.
+    group.rows.sort((a, b) => b.waiting - a.waiting || b.value - b.received - (a.value - a.received));
   }
   const currencies = CURRENCIES.map((c) => c.code).filter((code) => groups[code]);
   return { groups, currencies, unvalued, liveCount: live.length };
 }
 
-function FinanceTile({ label, value, currency, tone, hint }) {
+const FINANCE_PARTS = [
+  { key: "received", label: "Received", hint: "Paid by the client", tone: "received" },
+  { key: "waiting", label: "Waiting for payment", hint: "Invoice sent, not paid yet", tone: "waiting" },
+  { key: "notInvoiced", label: "Not invoiced yet", hint: "Stages still to come", tone: "later" },
+];
+
+function FinanceSplitBar({ parts, total, thin = false }) {
   return (
-    <div className={`fd-tile${tone ? ` fd-tile-${tone}` : ""}`}>
-      <span className="fd-tile-label">{label}</span>
-      <strong className="fd-tile-value">{formatMoney(value, currency)}</strong>
-      {hint ? <small className="fd-tile-hint">{hint}</small> : null}
+    <div className={`fd-bar${thin ? " fd-bar-thin" : ""}`}>
+      {FINANCE_PARTS.map((part) => (
+        <span
+          key={part.key}
+          className={`fd-bar-${part.tone}`}
+          style={{ width: total ? `${(parts[part.key] / total) * 100}%` : "0%" }}
+        />
+      ))}
     </div>
   );
 }
 
 function PortfolioFinanceView({ projects, onOpenProject }) {
   const { groups, currencies, unvalued, liveCount } = summariseFinance(projects);
+  const percentOf = (part, total) => (total ? Math.round((part / total) * 100) : 0);
 
   return (
     <div className="fd-board">
       <header className="fd-head">
-        <div>
-          <span className="pf-board-kicker">Finance</span>
-          <h2>Money in delivery</h2>
-          <p>
-            {liveCount} project{liveCount === 1 ? "" : "s"} in delivery · amounts follow the contract value
-            and payment stages of each project
-          </p>
-        </div>
+        <span className="pf-board-kicker">Finance</span>
+        <h2>Money in delivery</h2>
+        <p>
+          {liveCount} project{liveCount === 1 ? "" : "s"} in progress
+        </p>
       </header>
 
       {!currencies.length ? (
         <div className="fd-empty">
           <strong>No contract values yet</strong>
-          <p>Open a project in delivery and add its contract value — the figures appear here straight away.</p>
+          <p>Open a project in progress and add its contract value — the figures appear here straight away.</p>
         </div>
       ) : null}
 
       {currencies.map((code) => {
         const g = groups[code];
-        const notInvoiced = Math.max(0, g.value - g.collected - g.due);
-        const pct = (part) => (g.value ? `${(part / g.value) * 100}%` : "0%");
-        const share = (part) => (g.value ? Math.round((part / g.value) * 100) : 0);
+        const outstanding = g.waiting + g.notInvoiced;
+        const followUps = g.rows.filter((row) => row.waiting > 0);
         return (
           <section className="fd-currency" key={code}>
-            <header className="fd-currency-head">
-              <h3>{CURRENCIES.find((c) => c.code === code)?.label || code}</h3>
-              <span>{g.rows.length} project{g.rows.length === 1 ? "" : "s"}</span>
-            </header>
+            {currencies.length > 1 ? (
+              <h3 className="fd-currency-name">{CURRENCIES.find((c) => c.code === code)?.label || code}</h3>
+            ) : null}
 
-            <div className="fd-tiles">
-              <FinanceTile label="Contract value" value={g.value} currency={code} />
-              <FinanceTile label="Collected" value={g.collected} currency={code} tone="good" hint={`${share(g.collected)}% of the value`} />
-              <FinanceTile label="Due now" value={g.due} currency={code} tone="due" hint="Invoiced, awaiting transfer" />
-              <FinanceTile label="Still to collect" value={g.remaining} currency={code} tone="gold" hint={`${share(g.remaining)}% of the value`} />
+            {/* 1 — the answer in one line */}
+            <div className="fd-hero">
+              <span className="fd-hero-label">Still to collect</span>
+              <strong className="fd-hero-value">{formatMoney(outstanding, code)}</strong>
+              <span className="fd-hero-of">
+                out of {formatMoney(g.value, code)} in contracts ·{" "}
+                <b>{percentOf(g.received, g.value)}% received so far</b>
+              </span>
+              <FinanceSplitBar parts={g} total={g.value} />
             </div>
 
-            <div className="fd-split" aria-label="How the contract value splits">
-              <div className="fd-split-bar">
-                <span className="fd-seg fd-seg-collected" style={{ width: pct(g.collected) }} />
-                <span className="fd-seg fd-seg-due" style={{ width: pct(g.due) }} />
-                <span className="fd-seg fd-seg-open" style={{ width: pct(notInvoiced) }} />
-              </div>
-              <div className="fd-legend">
-                <span><i className="fd-key fd-seg-collected" />Collected {share(g.collected)}%</span>
-                <span><i className="fd-key fd-seg-due" />Due now {share(g.due)}%</span>
-                <span><i className="fd-key fd-seg-open" />Not invoiced yet {share(notInvoiced)}%</span>
-              </div>
+            {/* 2 — where every dirham is, left to right as the money moves */}
+            <div className="fd-parts">
+              {FINANCE_PARTS.map((part, index) => (
+                <div className={`fd-part fd-part-${part.tone}`} key={part.key}>
+                  <span className="fd-part-step">{index + 1}</span>
+                  <span className="fd-part-label">
+                    <i className={`fd-dot fd-bar-${part.tone}`} />
+                    {part.label}
+                  </span>
+                  <strong>{formatMoney(g[part.key], code)}</strong>
+                  <small>
+                    {part.hint} · {percentOf(g[part.key], g.value)}%
+                  </small>
+                </div>
+              ))}
             </div>
 
+            {/* 3 — what needs chasing */}
+            {followUps.length ? (
+              <div className="fd-follow">
+                <h4>Waiting for the client to pay</h4>
+                <ul>
+                  {followUps.map((row) => (
+                    <li key={row.project.id}>
+                      <button type="button" onClick={() => onOpenProject(row.project.id)}>
+                        <span className="fd-follow-name">
+                          <small>{row.project.id}</small>
+                          <span className="fd-follow-title">{row.project.name}</span>
+                        </span>
+                        <span className="fd-follow-stage">
+                          {row.waitingStages.map((stage) => stage.label).join(" + ")} invoice sent
+                        </span>
+                        <strong>{formatMoney(row.waiting, code)}</strong>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {/* 4 — every project, same three parts, same colours */}
             <div className="fd-table-wrap">
               <table className="fd-table">
                 <thead>
                   <tr>
                     <th>Project</th>
+                    <th><i className="fd-dot fd-bar-received" />Received</th>
+                    <th><i className="fd-dot fd-bar-waiting" />Waiting</th>
+                    <th><i className="fd-dot fd-bar-later" />Not invoiced</th>
                     <th>Contract</th>
-                    <th>Collected</th>
-                    <th>Due now</th>
-                    <th>Still to collect</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {g.rows.map(({ project, value, collected, due, remaining }) => (
-                    <tr key={project.id}>
+                  {g.rows.map((row) => (
+                    <tr key={row.project.id}>
                       <td>
-                        <button className="fd-project" type="button" onClick={() => onOpenProject(project.id)}>
-                          <small>{project.id}</small>
-                          <span>{project.name}</span>
+                        <button className="fd-project" type="button" onClick={() => onOpenProject(row.project.id)}>
+                          <small>{row.project.id}</small>
+                          <span>{row.project.name}</span>
                         </button>
-                        <div className="fd-row-bar">
-                          <span style={{ width: value ? `${(collected / value) * 100}%` : "0%" }} />
-                        </div>
+                        <FinanceSplitBar parts={row} total={row.value} thin />
                       </td>
-                      <td>{formatMoney(value, code)}</td>
-                      <td className="fd-good">{collected ? formatMoney(collected, code) : "—"}</td>
-                      <td className="fd-due">{due ? formatMoney(due, code) : "—"}</td>
-                      <td className="fd-gold">{formatMoney(remaining, code)}</td>
+                      <td className="fd-received">{row.received ? formatMoney(row.received, code) : "—"}</td>
+                      <td className="fd-waiting">{row.waiting ? formatMoney(row.waiting, code) : "—"}</td>
+                      <td className="fd-later">{row.notInvoiced ? formatMoney(row.notInvoiced, code) : "—"}</td>
+                      <td className="fd-total">{formatMoney(row.value, code)}</td>
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr>
+                    <td>Total</td>
+                    <td className="fd-received">{formatMoney(g.received, code)}</td>
+                    <td className="fd-waiting">{formatMoney(g.waiting, code)}</td>
+                    <td className="fd-later">{formatMoney(g.notInvoiced, code)}</td>
+                    <td className="fd-total">{formatMoney(g.value, code)}</td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </section>
@@ -4426,10 +4476,7 @@ function PortfolioFinanceView({ projects, onOpenProject }) {
 
       {unvalued.length ? (
         <section className="fd-unvalued">
-          <header className="fd-currency-head">
-            <h3>Without a contract value</h3>
-            <span>{unvalued.length}</span>
-          </header>
+          <h4>In progress without a contract value</h4>
           <div className="fd-chips">
             {unvalued.map((project) => (
               <button key={project.id} type="button" className="fd-chip" onClick={() => onOpenProject(project.id)}>

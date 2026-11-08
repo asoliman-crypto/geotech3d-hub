@@ -616,7 +616,7 @@
     .pf-card, .pf-pay-row, .pf-dept, .pf-tab, .pf-invoices, .pf-invoice-row,
     .pf-open-ws, .pf-terms-set, .pf-terms-edit, .pf-delete-project,
     .pf-print-button, .pf-add-button, .ws-summary, .ws-term, .ws-file,
-    .ws-drop, .pp-stage, .pp-collected, .pd-back, .fd-tile, .fd-chip, .sidebar-user, .nav-list button, .mini-action,
+    .ws-drop, .pp-stage, .pp-collected, .pd-back, .fd-part, .fd-chip, .sidebar-user, .nav-list button, .mini-action,
     .secondary-button, .primary-button
   ) {
     position: relative;
@@ -633,7 +633,7 @@
     .pf-card, .pf-pay-row, .pf-dept, .pf-tab, .pf-invoices, .pf-invoice-row,
     .pf-open-ws, .pf-terms-set, .pf-terms-edit, .pf-delete-project,
     .pf-print-button, .pf-add-button, .ws-summary, .ws-term, .ws-file,
-    .ws-drop, .pp-stage, .pp-collected, .pd-back, .fd-tile, .fd-chip, .sidebar-user, .nav-list button, .mini-action,
+    .ws-drop, .pp-stage, .pp-collected, .pd-back, .fd-part, .fd-chip, .sidebar-user, .nav-list button, .mini-action,
     .secondary-button, .primary-button
   )::before {
     content: "";
@@ -656,7 +656,7 @@
   /* the rim catching the same light */
   .theme-glass :is(
     .pf-card, .pf-pay-row, .pf-dept, .pf-tab, .pf-invoices, .pf-invoice-row,
-    .pf-open-ws, .ws-summary, .ws-term, .ws-file, .ws-drop, .pp-stage, .pp-collected, .fd-tile, .fd-chip, .sidebar-user,
+    .pf-open-ws, .ws-summary, .ws-term, .ws-file, .ws-drop, .pp-stage, .pp-collected, .fd-part, .fd-chip, .sidebar-user,
     .nav-list button
   )::after {
     content: "";
@@ -685,12 +685,12 @@
     .pf-card, .pf-pay-row, .pf-dept, .pf-tab, .pf-invoices, .pf-invoice-row,
     .pf-open-ws, .pf-terms-set, .pf-terms-edit, .pf-delete-project,
     .pf-print-button, .pf-add-button, .ws-summary, .ws-term, .ws-file,
-    .ws-drop, .pp-stage, .pp-collected, .pd-back, .fd-tile, .fd-chip, .sidebar-user, .nav-list button, .mini-action,
+    .ws-drop, .pp-stage, .pp-collected, .pd-back, .fd-part, .fd-chip, .sidebar-user, .nav-list button, .mini-action,
     .secondary-button, .primary-button
   ):hover::before,
   .theme-glass :is(
     .pf-card, .pf-pay-row, .pf-dept, .pf-tab, .pf-invoices, .pf-invoice-row,
-    .pf-open-ws, .ws-summary, .ws-term, .ws-file, .ws-drop, .pp-stage, .pp-collected, .fd-tile, .fd-chip, .sidebar-user,
+    .pf-open-ws, .ws-summary, .ws-term, .ws-file, .ws-drop, .pp-stage, .pp-collected, .fd-part, .fd-chip, .sidebar-user,
     .nav-list button
   ):hover::after {
     opacity: 1;
@@ -1040,6 +1040,9 @@
 /* --- Finance mini-dashboard in the glass theme ------------------------- */
 @media screen {
   .theme-glass .fd-board {
+    --fd-received: #34d399;
+    --fd-waiting: #fbbf24;
+    --fd-later: rgba(245, 241, 232, 0.38);
     border-color: var(--glass-edge);
     border-radius: 26px;
     background: linear-gradient(145deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.015));
@@ -1049,11 +1052,39 @@
   }
 
   .theme-glass .fd-head h2,
-  .theme-glass .fd-currency-head h3 {
+  .theme-glass .fd-currency-name,
+  .theme-glass .fd-follow h4,
+  .theme-glass .fd-unvalued h4 {
     color: #fffaf0;
   }
 
-  .theme-glass .fd-tile,
+  .theme-glass .fd-hero {
+    border-color: rgba(217, 184, 74, 0.45);
+    border-radius: 20px;
+    background: linear-gradient(145deg, rgba(217, 184, 74, 0.2), rgba(255, 255, 255, 0.03));
+    box-shadow: var(--glass-shine);
+  }
+
+  .theme-glass .fd-hero-label,
+  .theme-glass .fd-part-label,
+  .theme-glass .fd-table th {
+    color: rgba(245, 241, 232, 0.66);
+  }
+
+  .theme-glass .fd-hero-value {
+    color: #f3dd8e;
+    text-shadow: 0 2px 24px rgba(217, 184, 74, 0.3);
+  }
+
+  .theme-glass .fd-hero-of {
+    color: rgba(245, 241, 232, 0.8);
+  }
+
+  .theme-glass .fd-bar {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .theme-glass .fd-part,
   .theme-glass .fd-table-wrap,
   .theme-glass .fd-chip {
     border-color: var(--glass-edge);
@@ -1061,42 +1092,58 @@
     box-shadow: var(--glass-shine);
   }
 
-  .theme-glass .fd-tile {
+  .theme-glass .fd-part {
     border-radius: 18px;
   }
 
-  .theme-glass .fd-tile-label,
-  .theme-glass .fd-table th {
-    color: rgba(245, 241, 232, 0.62);
-  }
+  .theme-glass .fd-part-received { border-left-color: var(--fd-received); }
+  .theme-glass .fd-part-waiting { border-left-color: var(--fd-waiting); }
+  .theme-glass .fd-part-later { border-left-color: var(--fd-later); }
 
-  .theme-glass .fd-tile-value {
+  .theme-glass .fd-part strong {
     color: #fffaf0;
   }
 
-  .theme-glass .fd-tile-good .fd-tile-value,
-  .theme-glass .fd-good { color: #6ee7b7; }
+  .theme-glass .fd-part-received strong,
+  .theme-glass .fd-received { color: var(--fd-received); }
 
-  .theme-glass .fd-tile-due .fd-tile-value,
-  .theme-glass .fd-due { color: #fcd34d; }
+  .theme-glass .fd-part-waiting strong,
+  .theme-glass .fd-waiting,
+  .theme-glass .fd-follow button strong { color: var(--fd-waiting); }
 
-  .theme-glass .fd-tile-gold .fd-tile-value,
-  .theme-glass .fd-gold { color: #f3dd8e; }
-
-  .theme-glass .fd-tile-gold {
-    border-color: rgba(217, 184, 74, 0.45);
-    background: linear-gradient(145deg, rgba(217, 184, 74, 0.18), rgba(255, 255, 255, 0.03));
+  .theme-glass .fd-later {
+    color: rgba(245, 241, 232, 0.72);
   }
 
-  .theme-glass .fd-split-bar,
-  .theme-glass .fd-row-bar {
-    background: rgba(255, 255, 255, 0.1);
+  .theme-glass .fd-follow {
+    border-color: rgba(251, 191, 36, 0.4);
+    border-radius: 18px;
+    background: linear-gradient(145deg, rgba(251, 191, 36, 0.12), rgba(255, 255, 255, 0.02));
   }
 
-  .theme-glass .fd-seg-collected,
-  .theme-glass .fd-row-bar span { background: #34d399; }
-  .theme-glass .fd-seg-due { background: #fbbf24; }
-  .theme-glass .fd-seg-open { background: rgba(245, 241, 232, 0.35); }
+  .theme-glass .fd-follow button {
+    border-color: var(--glass-edge);
+    background: rgba(0, 0, 0, 0.18);
+    color: var(--ink);
+  }
+
+  .theme-glass .fd-follow button:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .theme-glass .fd-follow-stage {
+    color: rgba(245, 241, 232, 0.72);
+  }
+
+  .theme-glass .fd-follow-name small,
+  .theme-glass .fd-project small {
+    color: #ecd06a;
+  }
+
+  .theme-glass .fd-project span,
+  .theme-glass .fd-follow-name {
+    color: #fffaf0;
+  }
 
   .theme-glass .fd-table th,
   .theme-glass .fd-table td {
@@ -1111,12 +1158,8 @@
     background: rgba(255, 255, 255, 0.05);
   }
 
-  .theme-glass .fd-project small {
-    color: #ecd06a;
-  }
-
-  .theme-glass .fd-project span {
-    color: #fffaf0;
+  .theme-glass .fd-table tfoot td {
+    background: rgba(255, 255, 255, 0.04);
   }
 
   .theme-glass .fd-chip {
