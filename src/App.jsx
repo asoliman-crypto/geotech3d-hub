@@ -612,6 +612,8 @@ export default function App() {
   const [taskRequestMessage, setTaskRequestMessage] = useState("");
   const [cancelProjectDraft, setCancelProjectDraft] = useState(null);
   const [changingPassword, setChangingPassword] = useState(false);
+  // The project open on the portfolio board — the sidebar money list opens one too.
+  const [portfolioProjectId, setPortfolioProjectId] = useState("");
   const [loader, setLoader] = useState({ active: false, label: "Loading workspace" });
 
   const normalizedProjects = useMemo(() => normalizeProjectsForEmployees(projects), [projects]);
@@ -2761,6 +2763,16 @@ export default function App() {
           </button>
         </section>
 
+        {capabilities.isPortfolioAccount && !sidebarCollapsed ? (
+          <PortfolioFinancePanel
+            projects={roleScopedProjects}
+            onOpenProject={(projectId) => {
+              setActiveView("portfolio");
+              setPortfolioProjectId(projectId);
+            }}
+          />
+        ) : null}
+
         <div className="sidebar-bottom-actions">
           {/* Available to every role, including the portfolio accounts whose
               only view is the status board — everyone must be able to secure
@@ -2855,6 +2867,8 @@ export default function App() {
             onSetStagePaid={setStagePaid}
             onUpdateTerms={updatePaymentTerms}
             onUpdateValue={updateContractValue}
+            openProjectId={portfolioProjectId}
+            onOpenProject={setPortfolioProjectId}
             canDeleteProject={capabilities.canDeletePortfolioProject}
             onDeleteProject={deleteProject}
             onPrint={printReport}
@@ -4259,6 +4273,81 @@ function PortfolioProjectPage({
   );
 }
 
+// A compact money view for the sidebar: what is still to come in from the
+// projects in delivery, and how much of it is invoiced and due right now.
+// Amounts are kept per currency — dirhams and riyals are never added together.
+function PortfolioFinancePanel({ projects, onOpenProject }) {
+  const live = projects.filter(
+    (project) => getPortfolioStageId(project.status) === "current" && getContractValue(project) > 0,
+  );
+  const unvalued = projects.filter(
+    (project) => getPortfolioStageId(project.status) === "current" && !getContractValue(project),
+  ).length;
+
+  const totals = {};
+  const rows = live.map((project) => {
+    const currency = getCurrency(project);
+    const value = getContractValue(project);
+    const collected = getCollectedAmount(project);
+    const due = getActiveMilestones(project)
+      .filter((m) => getStageState(project, m.id) === STAGE_STATE.paymentDue)
+      .reduce((sum, m) => sum + getStageAmount(project, m.id), 0);
+    const remaining = Math.max(0, value - collected);
+    const t = (totals[currency] ||= { value: 0, remaining: 0, due: 0 });
+    t.value += value;
+    t.remaining += remaining;
+    t.due += due;
+    return { project, currency, remaining, due };
+  });
+  rows.sort((a, b) => b.remaining - a.remaining);
+  const currencies = CURRENCIES.map((c) => c.code).filter((code) => totals[code]);
+
+  return (
+    <section className="fin-panel" aria-label="Money still to collect">
+      <header className="fin-head">
+        <span>Still to collect</span>
+        <small>Projects in delivery</small>
+      </header>
+
+      {currencies.length ? (
+        currencies.map((code) => (
+          <div className="fin-total" key={code}>
+            <strong>{formatMoney(totals[code].remaining, code)}</strong>
+            <span>of {formatMoney(totals[code].value, code)}</span>
+            {totals[code].due ? (
+              <span className="fin-due">Due now {formatMoney(totals[code].due, code)}</span>
+            ) : null}
+          </div>
+        ))
+      ) : (
+        <p className="fin-empty">Add a contract value to a project in delivery to see it here.</p>
+      )}
+
+      {rows.length ? (
+        <ul className="fin-list">
+          {rows.map(({ project, currency, remaining, due }) => (
+            <li key={project.id}>
+              <button type="button" onClick={() => onOpenProject(project.id)} title={project.name}>
+                <span className="fin-name">{project.name}</span>
+                <span className="fin-amount">
+                  {formatMoney(remaining, currency, { compact: true })}
+                  {due ? <i className="fin-dot" title="Invoice issued, payment due" /> : null}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {unvalued ? (
+        <p className="fin-note">
+          {unvalued} project{unvalued === 1 ? "" : "s"} in delivery without a contract value
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 function PortfolioDashboard({
   projects,
   tasks,
@@ -4280,9 +4369,10 @@ function PortfolioDashboard({
   canDeleteProject,
   onDeleteProject,
   onPrint,
+  openProjectId,
+  onOpenProject: setOpenProjectId,
 }) {
   const [activeStage, setActiveStage] = useState("current");
-  const [openProjectId, setOpenProjectId] = useState("");
   const openProject = openProjectId ? projects.find((item) => item.id === openProjectId) : null;
   const [activeDept, setActiveDept] = useState("all");
   const [addingProject, setAddingProject] = useState(false);

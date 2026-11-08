@@ -196,7 +196,7 @@ export function parseAmount(input) {
 export function formatMoney(amount, currency = DEFAULT_CURRENCY, { compact = false } = {}) {
   const value = Number(amount) || 0;
   const number = new Intl.NumberFormat("en", compact
-    ? { notation: "compact", maximumFractionDigits: 1 }
+    ? { notation: "compact", maximumFractionDigits: 2 }
     : { maximumFractionDigits: 2 }).format(value);
   return `${currency} ${number}`;
 }
