@@ -236,7 +236,7 @@ const portfolioUsers = [
     id: "portfolio-admin",
     employeeId: null,
     name: "Mekky",
-    username: "admin.portfolio",
+    username: "mekky",
     // A real domain: Supabase rejects .local addresses when the app registers
     // an account, and this one was created through the app itself.
     email: "admin.portfolio@geotech3d.com",
