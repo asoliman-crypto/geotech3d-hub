@@ -691,6 +691,21 @@ export default function App() {
     () => getVisibleProjectsForUser(currentUser, enrichedProjects, normalizedTasks),
     [currentUser, enrichedProjects, normalizedTasks],
   );
+  // What the portfolio board and Finance show. Administration (Mekky) only
+  // works the projects in delivery that are contracted in dirhams; a project
+  // with no contract value has no currency yet, so it is not included.
+  const portfolioProjects = useMemo(
+    () =>
+      capabilities.seesLiveAedProjectsOnly
+        ? roleScopedProjects.filter(
+            (project) =>
+              getPortfolioStageId(project.status) === "current" &&
+              getContractValue(project) > 0 &&
+              project.currency === "AED",
+          )
+        : roleScopedProjects,
+    [roleScopedProjects, capabilities.seesLiveAedProjectsOnly],
+  );
   const roleScopedTasks = useMemo(
     () => getVisibleTasksForUser(currentUser, normalizedTasks, enrichedProjects),
     [currentUser, normalizedTasks, enrichedProjects],
@@ -2836,7 +2851,7 @@ export default function App() {
 
         {activeView === "finance" && canAccessView(currentUser, "finance") && (
           <PortfolioFinanceView
-            projects={roleScopedProjects}
+            projects={portfolioProjects}
             onOpenProject={(projectId) => {
               setPortfolioProjectId(projectId);
               setActiveView("portfolio");
@@ -2846,7 +2861,7 @@ export default function App() {
 
         {activeView === "portfolio" && canAccessView(currentUser, "portfolio") && (
           <PortfolioDashboard
-            projects={roleScopedProjects}
+            projects={portfolioProjects}
             tasks={publishedTasks}
             employees={workspacePeople}
             currentUser={currentUser}

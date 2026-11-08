@@ -215,6 +215,9 @@ export function getCapabilities(user) {
     // Administration audits collection: uploads the client's transfer proof
     // and confirms each stage was paid. It does not add or change projects.
     canRecordPayments: role === ROLES.PORTFOLIO_ADMIN || canEditOperations,
+    // Administration's desk is the live dirham book: projects in delivery
+    // whose contract is in AED. Everything else is outside its remit.
+    seesLiveAedProjectsOnly: role === ROLES.PORTFOLIO_ADMIN,
     // General project documents can be added by either side. The read-only
     // GM can open everything but add nothing.
     canManageProjectFiles:
