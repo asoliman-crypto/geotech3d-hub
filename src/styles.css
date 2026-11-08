@@ -5938,3 +5938,95 @@ a {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Contract value and stage amounts */
+.pp-value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border: 1px solid rgba(160, 132, 13, 0.4);
+  border-radius: 12px;
+  background: rgba(160, 132, 13, 0.06);
+}
+
+.pp-value > div {
+  display: grid;
+  gap: 2px;
+}
+
+.pp-value-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pp-value-amount {
+  color: var(--geo-gold-dark);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.pp-value-missing {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pp-value .pf-terms-edit {
+  margin: 0;
+}
+
+.pp-value-editing {
+  align-items: end;
+  justify-content: flex-start;
+}
+
+.pp-value-editing .pf-new-field {
+  min-width: 180px;
+}
+
+.pp-value-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.pp-value-actions .mini-action {
+  margin-top: 0;
+}
+
+.pp-stage-amount {
+  color: var(--geo-gold-dark);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.pf-stage-amount {
+  color: var(--geo-gold-dark);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.pf-pay-amount {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pf-value-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 720px) {
+  .pf-value-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -142,12 +142,20 @@ import {
   PAYMENT_MILESTONES,
   clampPercent,
   getPaymentTerms,
+  CURRENCIES,
+  DEFAULT_CURRENCY,
   FILE_KINDS,
   STAGE_STATE,
   STAGE_STATE_LABEL,
   STAGE_STATE_TONE,
   getActiveMilestones,
+  getCollectedAmount,
   getCollectedPercent,
+  getContractValue,
+  getCurrency,
+  getStageAmount,
+  formatMoney,
+  parseAmount,
   getKind,
   getOtherFiles,
   getPaymentsToCollect,
@@ -2077,6 +2085,27 @@ export default function App() {
     return { ok: true, closed, reopened };
   }
 
+  // The PM records the contract value and currency; every stage's amount is
+  // then its percentage of that value, worked out wherever it is shown.
+  function updateContractValue(projectId, { value, currency }) {
+    if (!capabilities.canManagePaymentTerms) return;
+    const project = projects.find((item) => item.id === projectId);
+    if (!project) return;
+    const amount = parseAmount(value);
+    const code = CURRENCIES.some((c) => c.code === currency) ? currency : DEFAULT_CURRENCY;
+    setProjects((current) =>
+      current.map((item) =>
+        item.id === projectId ? { ...item, contractValue: amount, currency: code } : item,
+      ),
+    );
+    addAuditEvent(
+      "project",
+      "Contract value updated",
+      `${project.name}: contract value set to ${amount ? formatMoney(amount, code) : "not recorded"} by ${currentUser.name}.`,
+      { relatedProjectId: projectId },
+    );
+  }
+
   // The PM sets the payment terms and can revise them later.
   function updatePaymentTerms(projectId, percents) {
     if (!capabilities.canManagePaymentTerms) return;
@@ -2152,7 +2181,12 @@ export default function App() {
       cancellationTaskAction: "",
     };
 
-    // Administration registers the payment terms with the project itself.
+    if (capabilities.canManagePaymentTerms) {
+      project.contractValue = parseAmount(draft.contractValue);
+      project.currency = CURRENCIES.some((c) => c.code === draft.currency) ? draft.currency : DEFAULT_CURRENCY;
+    }
+
+    // The PM registers the payment terms with the project itself.
     if (capabilities.canManagePaymentTerms && draft.payment) {
       const terms = {};
       for (const milestone of PAYMENT_MILESTONES) {
@@ -2820,6 +2854,7 @@ export default function App() {
             onDetachFile={detachProjectFile}
             onSetStagePaid={setStagePaid}
             onUpdateTerms={updatePaymentTerms}
+            onUpdateValue={updateContractValue}
             canDeleteProject={capabilities.canDeletePortfolioProject}
             onDeleteProject={deleteProject}
             onPrint={printReport}
@@ -3311,6 +3346,14 @@ function PortfolioTermsEditor({ project, onCancel, onSave }) {
                 setPercents((current) => ({ ...current, [milestone.id]: event.target.value }))
               }
             />
+            {getContractValue(project) && clampPercent(percents[milestone.id]) ? (
+              <strong className="pf-stage-amount">
+                {formatMoney(
+                  (getContractValue(project) * clampPercent(percents[milestone.id])) / 100,
+                  getCurrency(project),
+                )}
+              </strong>
+            ) : null}
             {entry.paid ? <small>paid</small> : null}
           </label>
         );
@@ -3412,6 +3455,11 @@ function PortfolioProjectCard({
                     <span className="pf-pay-label">
                       <span className="pf-pay-name">{milestone.label}</span>
                       <span className="pf-pay-percent">{terms[milestone.id].percent}%</span>
+                      {getContractValue(project) ? (
+                        <span className="pf-pay-amount">
+                          {formatMoney(getStageAmount(project, milestone.id), getCurrency(project), { compact: true })}
+                        </span>
+                      ) : null}
                     </span>
                     <Badge tone={STAGE_STATE_TONE[state]}>{STAGE_STATE_LABEL[state]}</Badge>
                   </li>
@@ -3492,6 +3540,8 @@ const blankPortfolioDraft = (stageId, teamLabel) => ({
   stageId: stageId || "current",
   end: "",
   progress: "",
+  contractValue: "",
+  currency: DEFAULT_CURRENCY,
   payment: { mobilization: "", delivery: "", approval: "" },
 });
 
@@ -3580,6 +3630,27 @@ function PortfolioNewProjectForm({ stageId, teamLabel, canSetPaymentTerms, onCan
       {canSetPaymentTerms ? (
         <fieldset className="pf-terms-fieldset">
           <legend>Payment terms — share of the contract billed at each stage</legend>
+          <div className="pf-value-row">
+            <label className="pf-new-field">
+              <span>Contract value</span>
+              <input
+                inputMode="decimal"
+                value={draft.contractValue}
+                placeholder="Example: 250,000"
+                onChange={(event) => set({ contractValue: event.target.value })}
+              />
+            </label>
+            <label className="pf-new-field">
+              <span>Currency</span>
+              <select value={draft.currency} onChange={(event) => set({ currency: event.target.value })}>
+                {CURRENCIES.map((c) => (
+                  <option value={c.code} key={c.code}>
+                    {c.code} — {c.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           <div className="pf-terms-grid">
             {PAYMENT_MILESTONES.map((milestone) => (
               <label className="pf-new-field" key={milestone.id}>
@@ -3594,7 +3665,16 @@ function PortfolioNewProjectForm({ stageId, teamLabel, canSetPaymentTerms, onCan
                     set({ payment: { ...draft.payment, [milestone.id]: event.target.value } })
                   }
                 />
-                <small>{milestone.caption}</small>
+                {parseAmount(draft.contractValue) && clampPercent(draft.payment[milestone.id]) ? (
+                  <strong className="pf-stage-amount">
+                    {formatMoney(
+                      (parseAmount(draft.contractValue) * clampPercent(draft.payment[milestone.id])) / 100,
+                      draft.currency,
+                    )}
+                  </strong>
+                ) : (
+                  <small>{milestone.caption}</small>
+                )}
               </label>
             ))}
           </div>
@@ -3619,8 +3699,6 @@ function PortfolioNewProjectForm({ stageId, teamLabel, canSetPaymentTerms, onCan
   );
 }
 
-// Administration's working queue: every stage the PM has confirmed that still
-// needs an invoice raised.
 // Administration's queue: every invoiced stage still waiting for the client's
 // money. A row appears the moment the PM uploads a stage invoice.
 function PortfolioPaymentsQueue({ projects, onOpenProject }) {
@@ -3643,7 +3721,11 @@ function PortfolioPaymentsQueue({ projects, onOpenProject }) {
               <div>
                 <strong>{project.name}</strong>
                 <small>
-                  {milestone.label} · {percent}% · {project.client || "client not recorded"}
+                  {milestone.label} · {percent}%
+                  {getContractValue(project)
+                    ? ` · ${formatMoney(getStageAmount(project, milestone.id), getCurrency(project))}`
+                    : ""}{" "}
+                  · {project.client || "client not recorded"}
                 </small>
                 {invoice ? (
                   <small>
@@ -3822,6 +3904,83 @@ function DocumentSlot({ title, file, canUpload, locked, emptyText, dropLabel, on
   );
 }
 
+// The contract value and its currency. Every stage amount on the page is its
+// percentage of this number.
+function ContractValuePanel({ project, canEdit, onSave }) {
+  const value = getContractValue(project);
+  const currency = getCurrency(project);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState({ value: "", currency });
+
+  function start() {
+    setDraft({ value: value ? String(value) : "", currency });
+    setEditing(true);
+  }
+
+  if (editing) {
+    return (
+      <form
+        className="pp-value pp-value-editing"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSave(project.id, draft);
+          setEditing(false);
+        }}
+      >
+        <label className="pf-new-field">
+          <span>Contract value</span>
+          <input
+            inputMode="decimal"
+            autoFocus
+            value={draft.value}
+            placeholder="Example: 250,000"
+            onChange={(event) => setDraft((d) => ({ ...d, value: event.target.value }))}
+          />
+        </label>
+        <label className="pf-new-field">
+          <span>Currency</span>
+          <select
+            value={draft.currency}
+            onChange={(event) => setDraft((d) => ({ ...d, currency: event.target.value }))}
+          >
+            {CURRENCIES.map((c) => (
+              <option value={c.code} key={c.code}>
+                {c.code} — {c.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="pp-value-actions">
+          <button className="primary-button compact-button" type="submit">
+            Save
+          </button>
+          <button className="mini-action" type="button" onClick={() => setEditing(false)}>
+            Cancel
+          </button>
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <div className="pp-value">
+      <div>
+        <span className="pp-value-label">Contract value</span>
+        {value ? (
+          <strong className="pp-value-amount">{formatMoney(value, currency)}</strong>
+        ) : (
+          <span className="pp-value-missing">Not recorded yet</span>
+        )}
+      </div>
+      {canEdit ? (
+        <button className="pf-terms-edit" type="button" onClick={start}>
+          {value ? "Edit value" : "Add contract value"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 function PortfolioProjectPage({
   project,
   employees,
@@ -3834,6 +3993,7 @@ function PortfolioProjectPage({
   onDetach,
   onSetPaid,
   onUpdateTerms,
+  onUpdateValue,
 }) {
   const [editingTerms, setEditingTerms] = useState(false);
   const [paidError, setPaidError] = useState({});
@@ -3845,6 +4005,8 @@ function PortfolioProjectPage({
   const terms = getPaymentTerms(project);
   const milestones = getActiveMilestones(project);
   const collected = getCollectedPercent(project);
+  const contractValue = getContractValue(project);
+  const currency = getCurrency(project);
   const fullyPaid = isFullyPaid(project);
   const otherFiles = getOtherFiles(project);
 
@@ -3901,10 +4063,17 @@ function PortfolioProjectPage({
         <StatusBadge value={project.status} />
       </header>
 
+      <ContractValuePanel project={project} canEdit={canManageTerms} onSave={onUpdateValue} />
+
       {hasPaymentTerms(project) ? (
         <div className="pp-collected">
           <div className="pp-collected-head">
             <span>Collected from the client</span>
+            {contractValue ? (
+              <strong>
+                {formatMoney(getCollectedAmount(project), currency)} of {formatMoney(contractValue, currency)}
+              </strong>
+            ) : null}
           </div>
           <ProgressBar value={collected} />
         </div>
@@ -3976,6 +4145,11 @@ function PortfolioProjectPage({
                     <div>
                       <strong>{milestone.label}</strong>
                       <span>{entry.percent}% of the contract</span>
+                      {contractValue ? (
+                        <b className="pp-stage-amount">
+                          {formatMoney(getStageAmount(project, milestone.id), currency)}
+                        </b>
+                      ) : null}
                     </div>
                     <Badge tone={STAGE_STATE_TONE[state]}>{STAGE_STATE_LABEL[state]}</Badge>
                   </header>
@@ -4102,6 +4276,7 @@ function PortfolioDashboard({
   onDetachFile,
   onSetStagePaid,
   onUpdateTerms,
+  onUpdateValue,
   canDeleteProject,
   onDeleteProject,
   onPrint,
@@ -4177,6 +4352,7 @@ function PortfolioDashboard({
           onDetach={onDetachFile}
           onSetPaid={onSetStagePaid}
           onUpdateTerms={onUpdateTerms}
+          onUpdateValue={onUpdateValue}
           onBack={() => {
             // Land on the tab the project now belongs to — a project that was
             // just fully paid has moved to Historical.

@@ -168,3 +168,52 @@ export function getPaymentsToCollect(projects) {
     String(a.invoice?.uploadedAt || "").localeCompare(String(b.invoice?.uploadedAt || "")),
   );
 }
+
+// --- contract value -----------------------------------------------------------
+
+export const CURRENCIES = [
+  { code: "AED", label: "UAE Dirham" },
+  { code: "SAR", label: "Saudi Riyal" },
+];
+export const DEFAULT_CURRENCY = "AED";
+
+/** Contract value as a number, or 0 when it has not been recorded. */
+export function getContractValue(project) {
+  const value = Number(project?.contractValue);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+export function getCurrency(project) {
+  return CURRENCIES.some((c) => c.code === project?.currency) ? project.currency : DEFAULT_CURRENCY;
+}
+
+/** Read a typed amount: tolerates thousands separators and spaces. */
+export function parseAmount(input) {
+  const value = Number(String(input ?? "").replace(/[,\s]/g, ""));
+  return Number.isFinite(value) && value > 0 ? Math.round(value * 100) / 100 : 0;
+}
+
+export function formatMoney(amount, currency = DEFAULT_CURRENCY, { compact = false } = {}) {
+  const value = Number(amount) || 0;
+  const number = new Intl.NumberFormat("en", compact
+    ? { notation: "compact", maximumFractionDigits: 1 }
+    : { maximumFractionDigits: 2 }).format(value);
+  return `${currency} ${number}`;
+}
+
+/** What one stage is worth: its share of the contract value. */
+export function getStageAmount(project, milestoneId) {
+  const value = getContractValue(project);
+  if (!value) return 0;
+  const percent = getPaymentTerms(project)[milestoneId]?.percent || 0;
+  return Math.round(value * percent) / 100;
+}
+
+/** Amount actually received so far. */
+export function getCollectedAmount(project) {
+  const terms = getPaymentTerms(project);
+  return PAYMENT_MILESTONES.reduce(
+    (sum, m) => sum + (terms[m.id].paid ? getStageAmount(project, m.id) : 0),
+    0,
+  );
+}

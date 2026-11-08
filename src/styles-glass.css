@@ -997,3 +997,42 @@
     background: #d9b84a;
   }
 }
+
+/* Contract value and stage amounts in the glass theme */
+@media screen {
+  .theme-glass .pp-value {
+    border-color: rgba(217, 184, 74, 0.38);
+    background: linear-gradient(145deg, rgba(217, 184, 74, 0.14), rgba(255, 255, 255, 0.03));
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    box-shadow: var(--shadow), var(--glass-shine);
+  }
+
+  .theme-glass .pp-value-label {
+    color: rgba(245, 241, 232, 0.66);
+  }
+
+  .theme-glass .pp-value-amount {
+    color: #f3dd8e;
+    text-shadow: 0 2px 18px rgba(217, 184, 74, 0.25);
+  }
+
+  .theme-glass .pp-value-missing {
+    color: var(--muted);
+  }
+
+  .theme-glass .pp-stage-amount,
+  .theme-glass .pf-stage-amount {
+    color: #f3dd8e;
+  }
+
+  .theme-glass .pf-pay-amount {
+    color: rgba(245, 241, 232, 0.78);
+  }
+
+  .theme-glass .pp-collected-head strong {
+    font-size: 13px;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+}
