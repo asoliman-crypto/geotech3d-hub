@@ -691,18 +691,20 @@ export default function App() {
     () => getVisibleProjectsForUser(currentUser, enrichedProjects, normalizedTasks),
     [currentUser, enrichedProjects, normalizedTasks],
   );
-  // What the portfolio board and Finance show. Administration (Mekky) only
-  // works the projects in delivery that are contracted in dirhams; a project
-  // with no contract value has no currency yet, so it is not included.
+  // What the portfolio board and Finance show. Administration (Mekky) works
+  // the projects in delivery that are contracted in dirhams (a project with
+  // no contract value has no currency yet, so it is not included), and can
+  // also look back at the Architecture department's historical projects.
   const portfolioProjects = useMemo(
     () =>
       capabilities.seesLiveAedProjectsOnly
-        ? roleScopedProjects.filter(
-            (project) =>
-              getPortfolioStageId(project.status) === "current" &&
-              getContractValue(project) > 0 &&
-              project.currency === "AED",
-          )
+        ? roleScopedProjects.filter((project) => {
+            const stage = getPortfolioStageId(project.status);
+            if (stage === "current") {
+              return getContractValue(project) > 0 && project.currency === "AED";
+            }
+            return stage === "historical" && getDepartmentId(project) === "architecture";
+          })
         : roleScopedProjects,
     [roleScopedProjects, capabilities.seesLiveAedProjectsOnly],
   );
