@@ -163,18 +163,27 @@ function summarise(account) {
 
 /**
  * The statement for one account, optionally narrowed to one project:
- * one line per invoice, oldest first, with whether it has been paid,
+ * one line per invoice, grouped by project, with whether it has been paid,
  * and three totals — invoiced, paid, balance due.
  */
 export function buildStatement(account, { projectId = "" } = {}) {
-  const rows = account.entries
-    .filter((e) => e.type === "invoice" && (!projectId || e.projectId === projectId))
-    .sort(
-      (a, b) =>
-        toTime(a.date) - toTime(b.date) ||
-        PAYMENT_MILESTONES.findIndex((m) => m.id === a.milestoneId) -
-          PAYMENT_MILESTONES.findIndex((m) => m.id === b.milestoneId),
-    );
+  const invoices = account.entries.filter(
+    (e) => e.type === "invoice" && (!projectId || e.projectId === projectId),
+  );
+  // Each project's invoices sit together (projects in the order they were
+  // first invoiced), stages in contract order within a project.
+  const firstInvoiced = {};
+  for (const e of invoices) {
+    const t = toTime(e.date);
+    if (!(e.projectId in firstInvoiced) || t < firstInvoiced[e.projectId]) firstInvoiced[e.projectId] = t;
+  }
+  const stageOrder = (id) => PAYMENT_MILESTONES.findIndex((m) => m.id === id);
+  const rows = invoices.sort(
+    (a, b) =>
+      firstInvoiced[a.projectId] - firstInvoiced[b.projectId] ||
+      a.projectId.localeCompare(b.projectId) ||
+      stageOrder(a.milestoneId) - stageOrder(b.milestoneId),
+  );
   const invoiced = rows.reduce((sum, r) => sum + r.debit, 0);
   const paid = rows.reduce((sum, r) => sum + (r.paid ? r.debit : 0), 0);
   return { rows, totals: { invoiced, paid, balance: invoiced - paid } };
@@ -185,10 +194,3 @@ export function formatStatementDate(value) {
   if (!t) return "—";
   return new Date(t).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
-
-// The legal entity that issues the invoices in each currency, as printed on
-// the invoices themselves.
-export const ISSUER_BY_CURRENCY = {
-  AED: "GEOTECH FOR SURVEYING AND MEASUREMENTS L.L.C - S.P.C",
-  SAR: "جيوتك لتقنية المعلومات",
-};
