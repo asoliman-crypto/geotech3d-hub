@@ -42,8 +42,6 @@ export function getInvoiceRefs(files) {
   return refs;
 }
 
-const DAY = 24 * 60 * 60 * 1000;
-
 function toTime(value) {
   const t = Date.parse(value || "");
   return Number.isFinite(t) ? t : 0;
@@ -164,44 +162,22 @@ function summarise(account) {
 }
 
 /**
- * The statement itself for one account, optionally narrowed to one project:
- * chronological rows with a running balance, totals and invoice ageing.
+ * The statement for one account, optionally narrowed to one project:
+ * one line per invoice, oldest first, with whether it has been paid,
+ * and three totals — invoiced, paid, balance due.
  */
-export function buildStatement(account, { projectId = "", asOf = new Date() } = {}) {
-  const projects = projectId ? account.projects.filter((p) => p.id === projectId) : account.projects;
-  const entries = (projectId ? account.entries.filter((e) => e.projectId === projectId) : account.entries)
-    .slice()
+export function buildStatement(account, { projectId = "" } = {}) {
+  const rows = account.entries
+    .filter((e) => e.type === "invoice" && (!projectId || e.projectId === projectId))
     .sort(
       (a, b) =>
         toTime(a.date) - toTime(b.date) ||
-        (a.type === "invoice" ? 0 : 1) - (b.type === "invoice" ? 0 : 1) ||
         PAYMENT_MILESTONES.findIndex((m) => m.id === a.milestoneId) -
           PAYMENT_MILESTONES.findIndex((m) => m.id === b.milestoneId),
     );
-
-  let balance = 0;
-  const rows = entries.map((entry) => {
-    balance += entry.debit - entry.credit;
-    return { ...entry, balance };
-  });
-
-  const totals = summarise({ projects }).totals;
-
-  // Ageing of what is still open, by days since the invoice was issued.
-  const now = asOf.getTime();
-  const ageing = { current: 0, d31: 0, d61: 0, d90: 0 };
-  const open = [];
-  for (const entry of entries) {
-    if (entry.type !== "invoice" || entry.paid) continue;
-    const days = Math.max(0, Math.floor((now - toTime(entry.date)) / DAY));
-    if (days <= 30) ageing.current += entry.debit;
-    else if (days <= 60) ageing.d31 += entry.debit;
-    else if (days <= 90) ageing.d61 += entry.debit;
-    else ageing.d90 += entry.debit;
-    open.push({ ...entry, days });
-  }
-
-  return { rows, totals, ageing, open, projects };
+  const invoiced = rows.reduce((sum, r) => sum + r.debit, 0);
+  const paid = rows.reduce((sum, r) => sum + (r.paid ? r.debit : 0), 0);
+  return { rows, totals: { invoiced, paid, balance: invoiced - paid } };
 }
 
 export function formatStatementDate(value) {
