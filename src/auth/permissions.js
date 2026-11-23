@@ -18,7 +18,7 @@ const PROJECT_MANAGEMENT_ROLES = [
 ];
 const TEAM_LEAD_ROLES = [ROLES.TEAM_LEAD];
 const TEAM_MEMBER_ROLES = [ROLES.EMPLOYEE, ROLES.TEAM_MEMBER];
-// Portfolio accounts see two screens: the portfolio board and Finance.
+// Portfolio accounts see the portfolio board, Finance and the Statement of Account.
 // PM may change a project's stage; GM is strictly read-only.
 const PORTFOLIO_ROLES = [ROLES.PORTFOLIO_PM, ROLES.PORTFOLIO_GM, ROLES.PORTFOLIO_ADMIN];
 
@@ -49,6 +49,13 @@ export const VIEW_ACCESS = {
   ],
   // Finance mini-dashboard: money in the projects currently in delivery.
   finance: [
+    ...PORTFOLIO_ROLES,
+    ...PROJECT_MANAGEMENT_ROLES,
+    ROLES.CEO,
+    ROLES.ROLE_CEO,
+  ],
+  // Statement of Account per client: same people as Finance.
+  soa: [
     ...PORTFOLIO_ROLES,
     ...PROJECT_MANAGEMENT_ROLES,
     ROLES.CEO,

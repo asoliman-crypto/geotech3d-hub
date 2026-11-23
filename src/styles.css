@@ -6412,3 +6412,132 @@ a {
   font-size: 12px;
   font-weight: 600;
 }
+
+/* ---------------------------------------------------------------------------
+   Statement of Account page (the statement itself is styled in its component
+   so the preview and the printout are identical)
+   --------------------------------------------------------------------------- */
+.soa-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.soa-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.soa-head h2 {
+  margin: 4px 0 2px;
+  font-size: 24px;
+}
+
+.soa-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.soa-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.soa-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.soa-clients {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.soa-client {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #f8fafc;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.soa-client.active {
+  border-color: var(--geo-gold);
+  box-shadow: 0 0 0 2px rgba(201, 169, 58, 0.35);
+}
+
+.soa-client-name {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.soa-client-sub {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.soa-client strong {
+  margin-top: 4px;
+  font-size: 15px;
+}
+
+.soa-client strong.due {
+  color: #b45309;
+}
+
+.soa-client strong.clear {
+  color: #0f8f72;
+}
+
+.soa-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 520px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.soa-filter select {
+  flex: 1;
+  min-width: 0;
+}
+
+.soa-paper {
+  min-width: 0;
+  padding: 18px;
+  border-radius: 16px;
+  background: #ece7dc;
+}
+
+@media (max-width: 720px) {
+  .soa-board {
+    padding: 14px;
+  }
+
+  .soa-paper {
+    padding: 0;
+    background: transparent;
+  }
+}

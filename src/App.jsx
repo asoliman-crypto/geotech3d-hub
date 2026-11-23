@@ -82,6 +82,7 @@ import { ProjectGanttReport } from "./components/ProjectGanttReport.jsx";
 import { ProjectCard } from "./components/ProjectCard.jsx";
 import { TaskGroupsByProject, TaskTable } from "./components/TaskTable.jsx";
 import { ProjectPlan } from "./components/ProjectPlan.jsx";
+import { StatementOfAccount } from "./components/StatementOfAccount.jsx";
 import { attachGlassSheen } from "./lib/glassSheen.js";
 import {
   Badge,
@@ -183,6 +184,7 @@ const navItems = [
   { id: "home", label: "My Day", icon: Sparkles },
   { id: "portfolio", label: "Portfolio Status", icon: TrendingUp },
   { id: "finance", label: "Finance", icon: Landmark },
+  { id: "soa", label: "Statement of Account", icon: FileText },
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "report", label: "Daily Report", icon: FileText },
   { id: "insights", label: "Reports", icon: BarChart3 },
@@ -2859,6 +2861,10 @@ export default function App() {
               setActiveView("portfolio");
             }}
           />
+        )}
+
+        {activeView === "soa" && canAccessView(currentUser, "soa") && (
+          <StatementOfAccount projects={portfolioProjects} />
         )}
 
         {activeView === "portfolio" && canAccessView(currentUser, "portfolio") && (

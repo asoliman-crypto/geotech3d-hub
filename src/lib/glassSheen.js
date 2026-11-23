@@ -25,6 +25,7 @@ export const GLASS_SURFACES = [
   ".pp-stage",
   ".fd-stage",
   ".fd-chip",
+  ".soa-client",
   ".pp-collected",
   ".pd-back",
   ".sidebar-user",
